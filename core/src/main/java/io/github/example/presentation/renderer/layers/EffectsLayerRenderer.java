@@ -5,39 +5,23 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Rectangle;
+import io.github.example.presentation.effects.ParticlePool;
+import io.github.example.presentation.effects.EffectType;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.Logger;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
 /**
  * Renders particle effects and temporary visual effects on the map.
- * Manages effect lifecycle with time-to-live (TTL) tracking.
+ * Uses ParticlePool for efficient object reuse and lifecycle management.
  * Layer 4 (after fog, before UI).
  */
 public class EffectsLayerRenderer extends AbstractLayerRenderer {
-    private static class ActiveEffect {
-        final float x;
-        final float y;
-        final Sprite sprite;
-        final float duration;
-        float ttl; // Time remaining
-
-        ActiveEffect(float x, float y, Sprite sprite, float duration) {
-            this.x = x;
-            this.y = y;
-            this.sprite = sprite;
-            this.duration = duration;
-            this.ttl = duration;
-        }
-    }
-
-    private final List<ActiveEffect> activeEffects = new ArrayList<>();
+    private final ParticlePool particlePool;
     private int effectsRendered;
 
     public EffectsLayerRenderer() {
         super("EffectsLayer");
+        this.particlePool = new ParticlePool(300);
     }
 
     /**
@@ -48,57 +32,85 @@ public class EffectsLayerRenderer extends AbstractLayerRenderer {
      * @param duration How long the effect should persist (in seconds)
      */
     public void addEffect(float x, float y, Sprite sprite, float duration) {
+        addEffect(x, y, sprite, duration, 0, 0);
+    }
+
+    /**
+     * Adds a new visual effect with velocity.
+     * @param x World X coordinate (in pixels)
+     * @param y World Y coordinate (in pixels)
+     * @param sprite The sprite to render
+     * @param duration How long the effect should persist (in seconds)
+     * @param vx X velocity
+     * @param vy Y velocity
+     */
+    public void addEffect(float x, float y, Sprite sprite, float duration, float vx, float vy) {
         if (sprite == null || duration <= 0) {
             return;
         }
         Sprite newSprite = new Sprite(sprite);
-        newSprite.setPosition(x, y);
         newSprite.setSize(Constants.TILE_SIZE, Constants.TILE_SIZE);
-        activeEffects.add(new ActiveEffect(x, y, newSprite, duration));
+        particlePool.rentParticle(x, y, vx, vy, duration, newSprite);
         Logger.debug("Added effect at (" + x + ", " + y + ") with duration " + duration + "s");
+    }
+
+    /**
+     * Adds a new visual effect based on EffectType.
+     * @param x World X coordinate (in pixels)
+     * @param y World Y coordinate (in pixels)
+     * @param type The type of effect
+     * @param sprite The sprite to render
+     */
+    public void addEffect(float x, float y, EffectType type, Sprite sprite) {
+        if (sprite == null || type == null) {
+            return;
+        }
+        
+        float vx = 0;
+        float vy = 0;
+        float duration = 0.5f;
+        
+        switch (type) {
+            case DAMAGE:
+                duration = 0.8f;
+                vy = 50f; // Float upward
+                break;
+            case HEAL:
+                duration = 0.8f;
+                vy = 50f; // Float upward
+                break;
+            case SPELL:
+                duration = 1.0f;
+                break;
+            case WEAPON:
+                duration = 0.6f;
+                break;
+            case STATUS:
+                duration = 1.2f;
+                break;
+            case EXPERIENCE:
+                duration = 1.0f;
+                vy = 30f; // Float upward
+                break;
+            case LEVEL_UP:
+                duration = 1.5f;
+                vy = 40f; // Float upward
+                break;
+        }
+        
+        addEffect(x, y, sprite, duration, vx, vy);
     }
 
     @Override
     public void render(SpriteBatch batch, OrthographicCamera camera, float delta) {
-        if (!isVisible || activeEffects.isEmpty()) {
+        if (!isVisible) {
             return;
         }
 
-        Rectangle visibleBounds = new Rectangle(
-            camera.position.x - camera.viewportWidth / 2,
-            camera.position.y - camera.viewportHeight / 2,
-            camera.viewportWidth,
-            camera.viewportHeight
-        );
+        particlePool.update(delta);
+        particlePool.render(batch, camera);
 
-        effectsRendered = 0;
-
-        // Update TTL and render visible effects
-        Iterator<ActiveEffect> iterator = activeEffects.iterator();
-        while (iterator.hasNext()) {
-            ActiveEffect effect = iterator.next();
-            effect.ttl -= delta;
-
-            // Remove expired effects
-            if (effect.ttl <= 0) {
-                iterator.remove();
-                continue;
-            }
-
-            // Cull invisible effects
-            if (!cullingSystem.isVisible(effect.x, effect.y, Constants.TILE_SIZE, Constants.TILE_SIZE, visibleBounds)) {
-                continue;
-            }
-
-            // Apply alpha fade-out effect
-            float alpha = effect.ttl / effect.duration;
-            batch.setColor(1, 1, 1, alpha);
-            effect.sprite.draw(batch);
-            batch.setColor(1, 1, 1, 1); // Reset color
-
-            effectsRendered++;
-        }
-
+        effectsRendered = particlePool.getActiveCount();
         if (effectsRendered > 0) {
             Logger.debug("Rendered " + effectsRendered + " effects");
         }
@@ -106,12 +118,7 @@ public class EffectsLayerRenderer extends AbstractLayerRenderer {
 
     @Override
     public void dispose() {
-        for (ActiveEffect effect : activeEffects) {
-            if (effect.sprite != null && effect.sprite.getTexture() != null) {
-                effect.sprite.getTexture().dispose();
-            }
-        }
-        activeEffects.clear();
+        particlePool.clear();
         super.dispose();
     }
 
@@ -119,13 +126,13 @@ public class EffectsLayerRenderer extends AbstractLayerRenderer {
      * Removes all active effects.
      */
     public void clearEffects() {
-        activeEffects.clear();
+        particlePool.clear();
     }
 
     /**
      * Returns the count of currently active effects.
      */
     public int getActiveEffectCount() {
-        return activeEffects.size();
+        return particlePool.getActiveCount();
     }
 }
