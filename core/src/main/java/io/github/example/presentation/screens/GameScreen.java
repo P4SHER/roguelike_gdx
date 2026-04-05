@@ -26,7 +26,7 @@ import java.util.Queue;
 /**
  * Основной экран игры.
  * Отрисовывает уровень, персонажа, врагов, предметы и HUD.
- * Обрабатывает ввод игрока.
+ * Обрабатывает ввод игрока и управляет turn-based gameplay loop.
  */
 public class GameScreen implements Screen {
     private final GameService gameService;
@@ -50,6 +50,8 @@ public class GameScreen implements Screen {
     public interface GameCallback {
         void onPause();
         void onGameOver();
+        void onToggleInventory();
+        void onQuitToMenu();
     }
 
     public interface EffectCallback {
@@ -67,7 +69,6 @@ public class GameScreen implements Screen {
         this.layersInitialized = false;
         this.actionLog = new ArrayList<>();
 
-        // Устанавливаем слушателя ввода для этого экрана
         setupInputListener();
     }
 
@@ -99,22 +100,101 @@ public class GameScreen implements Screen {
             public void onMenuInput(InputHandler.MenuInput input) {
                 handleMenuInput(input);
             }
+
+            @Override
+            public void onItemUse(int slotIndex) {
+                handleItemUse(slotIndex);
+            }
+
+            @Override
+            public void onWait() {
+                handleWaitAction();
+            }
+
+            @Override
+            public void onToggleInventory() {
+                handleToggleInventory();
+            }
+
+            @Override
+            public void onTogglePause() {
+                handleTogglePause();
+            }
+
+            @Override
+            public void onQuitToMenu() {
+                handleQuitToMenu();
+            }
         });
     }
 
     private void handlePlayerMove(Direction direction) {
-        // Queue direction input for turn-based processing
         if (direction != Direction.NONE) {
             inputQueue.offer(direction);
         }
     }
 
+    private void handleItemUse(int slotIndex) {
+        if (gameService == null || gameService.getSession() == null) {
+            return;
+        }
+        try {
+            boolean success = gameService.useItemFromBackpack(slotIndex, false);
+            if (success) {
+                Logger.info("Used item from slot " + slotIndex);
+                addActionLog("Used item");
+            } else {
+                Logger.warn("Could not use item from slot " + slotIndex);
+            }
+        } catch (Exception e) {
+            Logger.error("Error using item: " + e.getMessage());
+        }
+    }
+
+    private void handleWaitAction() {
+        if (gameService == null || gameService.getSession() == null) {
+            return;
+        }
+        try {
+            // Wait is a no-op action for the player, but enemies still act
+            gameService.processPlayerAction(Direction.NONE);
+            Logger.info("Player waited");
+            addActionLog("Waited");
+        } catch (Exception e) {
+            Logger.error("Error during wait action: " + e.getMessage());
+        }
+    }
+
+    private void handleToggleInventory() {
+        if (callback != null) {
+            callback.onToggleInventory();
+        }
+    }
+
+    private void handleTogglePause() {
+        if (callback != null) {
+            callback.onPause();
+        }
+    }
+
+    private void handleQuitToMenu() {
+        if (callback != null) {
+            callback.onQuitToMenu();
+        }
+    }
+
+    private void addActionLog(String action) {
+        actionLog.add(action);
+        if (actionLog.size() > 10) {
+            actionLog.remove(0);
+        }
+    }
+
     @Override
     public void show() {
-        Logger.info("GameScreen показан");
-        // Инициализируем уровень, персонажа и т.д.
+        Logger.info("GameScreen shown");
         if (gameService != null) {
-            Logger.debug("GameService инициализирован");
+            Logger.debug("GameService initialized");
             setupLayers();
         }
     }
@@ -130,13 +210,13 @@ public class GameScreen implements Screen {
         }
 
         if (gameService == null) {
-            Logger.error("GameService не инициализирована");
+            Logger.error("GameService not initialized");
             return;
         }
 
         GameSession gameSession = gameService.getSession();
         if (gameSession == null) {
-            Logger.error("GameSession не инициализирована");
+            Logger.error("GameSession not initialized");
             return;
         }
 
@@ -145,27 +225,23 @@ public class GameScreen implements Screen {
         List<Enemy> enemies = level != null ? level.getAllEnemies() : new ArrayList<>();
 
         if (level == null || player == null) {
-            Logger.error("Level или Player не инициализированы");
+            Logger.error("Level or Player not initialized");
             return;
         }
 
-        // Z-order слоев: Tile (0) → Actor (1) → Item (2) → Fog (3) → Effects (4) → UI (5)
         renderer.addLayer(new TileLayerRenderer(level, assetManager));
         renderer.addLayer(new ActorLayerRenderer(player, enemies, assetManager));
         renderer.addLayer(new ItemLayerRenderer(level, assetManager));
         renderer.addLayer(new FogLayerRenderer(level, player));
         
-        // Add Effects and UI layers
         effectsLayerRenderer = new EffectsLayerRenderer();
         renderer.addLayer(effectsLayerRenderer);
         
-        // Initialize particle system (EffectFactory uses static methods)
         particlePool = new ParticlePool(256);
         
         uiLayerRenderer = new UILayerRenderer(player, actionLog);
         renderer.addLayer(uiLayerRenderer);
         
-        // Create default EffectCallback implementation
         if (effectCallback == null) {
             effectCallback = new EffectCallback() {
                 @Override
@@ -191,36 +267,42 @@ public class GameScreen implements Screen {
         }
 
         layersInitialized = true;
-        Logger.info("Слои рендеринга инициализированы (6 layers)");
+        Logger.info("Rendering layers initialized (6 layers)");
     }
 
     @Override
     public void render(float delta, SpriteBatch batch) {
-        // 1. Process input for this frame
-        handleInputQueue();
-        
-        // 2. Update game logic (turn-based)
-        if (shouldProcessTurn()) {
-            Direction direction = getNextDirection();
-            if (direction != Direction.NONE) {
-                gameService.processPlayerAction(direction);
-                fireGameEventCallbacks();
+        try {
+            // 1. Process input for this frame
+            handleInputQueue();
+            
+            // 2. Update game logic (turn-based)
+            if (shouldProcessTurn()) {
+                Direction direction = getNextDirection();
+                if (direction != Direction.NONE) {
+                    gameService.processPlayerAction(direction);
+                    fireGameEventCallbacks();
+                } else if (!inputQueue.isEmpty()) {
+                    // Consume queued direction
+                    inputQueue.poll();
+                }
+                turnProcessed = false;
             }
-            turnProcessed = false; // Reset for next turn
+            
+            // 3. Update camera to follow player
+            updateCameraPosition(delta);
+            
+            // 4. Update camera and render all layers
+            renderer.updateCamera();
+            renderer.render(delta);
+        } catch (Exception e) {
+            Logger.error("Error in GameScreen.render(): " + e.getMessage());
+            e.printStackTrace();
         }
-        
-        // 3. Update camera to follow player
-        updateCameraPosition(delta);
-        
-        // 4. Update camera and render all layers
-        renderer.updateCamera();
-        renderer.render(delta);
     }
 
     private void handleInputQueue() {
         if (!inputQueue.isEmpty() && !turnProcessed) {
-            // Just peek, don't poll - getNextDirection will check actual input
-            inputQueue.peek();
             turnProcessed = true;
         }
     }
@@ -230,7 +312,6 @@ public class GameScreen implements Screen {
     }
 
     private Direction getNextDirection() {
-        // Get current continuous input from keyboard
         Direction currentDir = inputHandler.getCurrentDirection();
         if (currentDir != Direction.NONE && !inputQueue.isEmpty()) {
             inputQueue.poll();
@@ -260,11 +341,7 @@ public class GameScreen implements Screen {
             Level level = session.getCurrentLevel();
             
             if (player != null && level != null) {
-                // Check for items at player position for pickup
                 checkAndPickupItems(player, level);
-                
-                // Callback handling for visual effects
-                // Extended when GameService tracks combat results
             }
         }
     }
@@ -282,16 +359,14 @@ public class GameScreen implements Screen {
         
         if (itemAtPos != null) {
             try {
-                // Add item to player's backpack
                 if (player.getBackpack().addItem(itemAtPos.copyObject())) {
-                    // Fire event callback
                     if (eventListener != null) {
                         eventListener.onItemPickedUp(itemAtPos);
                     }
                     
-                    // Remove from level
                     level.removeItem(playerPos);
                     Logger.info("Picked up: " + itemAtPos.getName());
+                    addActionLog("Picked up: " + itemAtPos.getName());
                 } else {
                     Logger.warn("Inventory full, could not pick up: " + itemAtPos.getName());
                 }
@@ -308,13 +383,11 @@ public class GameScreen implements Screen {
 
         switch (action) {
             case ATTACK:
-                Logger.info("Атака!");
-                // Attack would be triggered by attempting to move into enemy
+                Logger.info("Attack!");
                 break;
 
             case INTERACT:
-                Logger.info("Взаимодействие!");
-                // Interaction logic would go here
+                Logger.info("Interact!");
                 break;
 
             default:
@@ -342,12 +415,12 @@ public class GameScreen implements Screen {
 
     @Override
     public void hide() {
-        Logger.debug("GameScreen скрыт");
+        Logger.debug("GameScreen hidden");
     }
 
     @Override
     public void dispose() {
-        Logger.debug("GameScreen очищен");
+        Logger.debug("GameScreen disposed");
         renderer.dispose();
     }
 
