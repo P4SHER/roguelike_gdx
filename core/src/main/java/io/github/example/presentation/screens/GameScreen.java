@@ -15,7 +15,9 @@ import io.github.example.domain.level.Level;
 import io.github.example.domain.level.Coordinates;
 import io.github.example.domain.entities.Player;
 import io.github.example.domain.entities.Enemy;
+import io.github.example.domain.entities.Item;
 import io.github.example.presentation.util.Constants;
+import io.github.example.presentation.events.GameEventListener;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -34,6 +36,7 @@ public class GameScreen implements Screen {
 
     private GameCallback callback;
     private EffectCallback effectCallback;
+    private GameEventListener eventListener;
     private boolean layersInitialized;
     private EffectsLayerRenderer effectsLayerRenderer;
     private UILayerRenderer uiLayerRenderer;
@@ -74,6 +77,10 @@ public class GameScreen implements Screen {
 
     public void setEffectCallback(EffectCallback effectCallback) {
         this.effectCallback = effectCallback;
+    }
+
+    public void setEventListener(GameEventListener listener) {
+        this.eventListener = listener;
     }
 
     private void setupInputListener() {
@@ -250,9 +257,46 @@ public class GameScreen implements Screen {
         GameSession session = gameService.getSession();
         if (session != null) {
             Player player = session.getPlayer();
-            if (player != null) {
+            Level level = session.getCurrentLevel();
+            
+            if (player != null && level != null) {
+                // Check for items at player position for pickup
+                checkAndPickupItems(player, level);
+                
                 // Callback handling for visual effects
                 // Extended when GameService tracks combat results
+            }
+        }
+    }
+
+    /**
+     * Automatically picks up items at player's current position.
+     */
+    private void checkAndPickupItems(Player player, Level level) {
+        if (player == null || level == null) {
+            return;
+        }
+
+        Coordinates playerPos = player.getCoordinates();
+        Item itemAtPos = level.getItems().get(playerPos);
+        
+        if (itemAtPos != null) {
+            try {
+                // Add item to player's backpack
+                if (player.getBackpack().addItem(itemAtPos.copyObject())) {
+                    // Fire event callback
+                    if (eventListener != null) {
+                        eventListener.onItemPickedUp(itemAtPos);
+                    }
+                    
+                    // Remove from level
+                    level.removeItem(playerPos);
+                    Logger.info("Picked up: " + itemAtPos.getName());
+                } else {
+                    Logger.warn("Inventory full, could not pick up: " + itemAtPos.getName());
+                }
+            } catch (Exception e) {
+                Logger.error("Error picking up item: " + e.getMessage());
             }
         }
     }
