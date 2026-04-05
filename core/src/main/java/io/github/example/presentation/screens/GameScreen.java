@@ -12,10 +12,14 @@ import io.github.example.domain.service.Direction;
 import io.github.example.domain.service.GameService;
 import io.github.example.domain.service.GameSession;
 import io.github.example.domain.level.Level;
+import io.github.example.domain.level.Coordinates;
 import io.github.example.domain.entities.Player;
 import io.github.example.domain.entities.Enemy;
+import io.github.example.presentation.util.Constants;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 /**
  * Основной экран игры.
@@ -35,6 +39,10 @@ public class GameScreen implements Screen {
     private UILayerRenderer uiLayerRenderer;
     private ParticlePool particlePool;
     private List<String> actionLog;
+
+    // Turn-based gameplay loop
+    private final Queue<Direction> inputQueue = new LinkedList<>();
+    private boolean turnProcessed = false;
 
     public interface GameCallback {
         void onPause();
@@ -85,6 +93,13 @@ public class GameScreen implements Screen {
                 handleMenuInput(input);
             }
         });
+    }
+
+    private void handlePlayerMove(Direction direction) {
+        // Queue direction input for turn-based processing
+        if (direction != Direction.NONE) {
+            inputQueue.offer(direction);
+        }
     }
 
     @Override
@@ -174,35 +189,76 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta, SpriteBatch batch) {
-        // Обновляем камеру для отслеживания персонажа
-        if (gameService != null) {
-            // renderer.setCameraTarget(player.getX(), player.getY());
+        // 1. Process input for this frame
+        handleInputQueue();
+        
+        // 2. Update game logic (turn-based)
+        if (shouldProcessTurn()) {
+            Direction direction = getNextDirection();
+            if (direction != Direction.NONE) {
+                gameService.processPlayerAction(direction);
+                fireGameEventCallbacks();
+            }
+            turnProcessed = false; // Reset for next turn
         }
-
-        // Отрисовываем игровой мир через renderer
+        
+        // 3. Update camera to follow player
+        updateCameraPosition(delta);
+        
+        // 4. Update camera and render all layers
+        renderer.updateCamera();
         renderer.render(delta);
-
-        // Обновляем состояние игры
-        updateGame(delta);
     }
 
-    private void updateGame(float delta) {
-        if (gameService == null) {
+    private void handleInputQueue() {
+        if (!inputQueue.isEmpty() && !turnProcessed) {
+            // Just peek, don't poll - getNextDirection will check actual input
+            inputQueue.peek();
+            turnProcessed = true;
+        }
+    }
+
+    private boolean shouldProcessTurn() {
+        return turnProcessed;
+    }
+
+    private Direction getNextDirection() {
+        // Get current continuous input from keyboard
+        Direction currentDir = inputHandler.getCurrentDirection();
+        if (currentDir != Direction.NONE && !inputQueue.isEmpty()) {
+            inputQueue.poll();
+        }
+        return currentDir;
+    }
+
+    private void updateCameraPosition(float delta) {
+        Player player = null;
+        if (gameService != null && gameService.getSession() != null) {
+            player = gameService.getSession().getPlayer();
+        }
+        
+        if (player != null) {
+            float pixelX = player.getCoordinates().getX() * Constants.TILE_SIZE;
+            float pixelY = player.getCoordinates().getY() * Constants.TILE_SIZE;
+            float centerX = pixelX + Constants.TILE_SIZE / 2.0f;
+            float centerY = pixelY + Constants.TILE_SIZE / 2.0f;
+            renderer.setCameraTarget(centerX, centerY);
+        }
+    }
+
+    private void fireGameEventCallbacks() {
+        if (effectCallback == null) {
             return;
         }
 
-        // Получаем текущее направление из InputHandler
-        Direction direction = inputHandler.getCurrentDirection();
-        if (direction != Direction.NONE) {
-            // Отправляем команду движения в domain слой
-            Logger.debug("Движение: " + direction);
-            // gameService.movePlayer(direction);
+        GameSession session = gameService.getSession();
+        if (session != null) {
+            Player player = session.getPlayer();
+            if (player != null) {
+                // Callback handling for visual effects
+                // Extended when GameService tracks combat results
+            }
         }
-    }
-
-    private void handlePlayerMove(Direction direction) {
-        // Это вызывается только для discrete движения (не continuous)
-        // В нашем случае движение обрабатывается в updateGame()
     }
 
     private void handleAction(InputHandler.Action action) {
@@ -213,12 +269,12 @@ public class GameScreen implements Screen {
         switch (action) {
             case ATTACK:
                 Logger.info("Атака!");
-                // gameService.attackNearestEnemy();
+                // Attack would be triggered by attempting to move into enemy
                 break;
 
             case INTERACT:
                 Logger.info("Взаимодействие!");
-                // gameService.interactWithNearby();
+                // Interaction logic would go here
                 break;
 
             default:
