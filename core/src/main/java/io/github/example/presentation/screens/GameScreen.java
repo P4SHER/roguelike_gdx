@@ -154,22 +154,40 @@ public class GameScreen implements Screen {
     }
 
     private void handleItemUse(int slotIndex) {
-        if (gameService == null || gameService.getSession() == null) {
-            return;
-        }
-        actionQueue.enqueueItemUse(slotIndex, () -> {
-            try {
-                boolean success = gameService.useItemFromBackpack(slotIndex, false);
-                if (success) {
-                    Logger.info("Used item from slot " + slotIndex);
-                    addActionLog("Used item");
-                } else {
-                    Logger.warn("Could not use item from slot " + slotIndex);
-                }
-            } catch (Exception e) {
-                Logger.error("Error using item: " + e.getMessage());
+        try {
+            if (gameService == null || gameService.getSession() == null) {
+                Logger.warn("Cannot use item: GameService or session is null");
+                return;
             }
-        });
+            
+            // Validate slot index
+            if (slotIndex < 0 || slotIndex >= 9) {
+                Logger.warn("Invalid item slot: " + slotIndex);
+                addActionLog("Invalid slot!");
+                return;
+            }
+            
+            actionQueue.enqueueItemUse(slotIndex, () -> {
+                try {
+                    boolean success = gameService.useItemFromBackpack(slotIndex, false);
+                    if (success) {
+                        Logger.info("Used item from slot " + slotIndex);
+                        addActionLog("Used item");
+                    } else {
+                        Logger.warn("Could not use item from slot " + slotIndex);
+                        addActionLog("Item slot empty!");
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    Logger.error("Invalid inventory slot " + slotIndex + ": " + e.getMessage());
+                    addActionLog("Inventory error!");
+                } catch (Exception e) {
+                    Logger.error("Error using item: " + e.getMessage());
+                    addActionLog("Item use failed!");
+                }
+            });
+        } catch (Exception e) {
+            Logger.error("Error queueing item use: " + e.getMessage());
+        }
     }
 
     private void handleWaitAction() {
@@ -295,6 +313,14 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta, SpriteBatch batch) {
         try {
+            // Validate game state before proceeding
+            if (!validateGameState()) {
+                if (callback != null) {
+                    callback.onGameOver();
+                }
+                return;
+            }
+            
             performanceMonitor.startInputPhase();
             
             // 1. INPUT PHASE: Collect keyboard input and queue actions
@@ -312,9 +338,14 @@ public class GameScreen implements Screen {
                 if (actionQueue.hasActions()) {
                     InputQueue.GameAction nextAction = actionQueue.getNextAction();
                     if (nextAction != null) {
-                        nextAction.execute();
-                        fireGameEventCallbacks();
-                        Logger.debug("Executed: " + nextAction.getDescription());
+                        try {
+                            nextAction.execute();
+                            fireGameEventCallbacks();
+                            Logger.debug("Executed: " + nextAction.getDescription());
+                        } catch (Exception actionError) {
+                            Logger.error("Action execution failed: " + actionError.getMessage());
+                            addActionLog("Action failed!");
+                        }
                     }
                 }
             }
@@ -331,26 +362,64 @@ public class GameScreen implements Screen {
             performanceMonitor.recordFrameTime();
             
         } catch (Exception e) {
-            Logger.error("Error in GameScreen.render(): " + e.getMessage());
+            Logger.error("Critical error in GameScreen.render(): " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     /**
+     * Validate game state for safety.
+     */
+    private boolean validateGameState() {
+        if (gameService == null || gameService.getSession() == null) {
+            Logger.error("GameService or GameSession is null");
+            return false;
+        }
+        
+        GameSession session = gameService.getSession();
+        if (session.getPlayer() == null) {
+            Logger.error("Player is null");
+            return false;
+        }
+        
+        // Check if player is alive
+        if (!session.getPlayer().isAlive()) {
+            Logger.info("Player died - game over");
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
      * INPUT PHASE: Polls keyboard input each frame and queues actions.
      * This runs every frame, not just on turn boundaries.
+     * Includes validation and error handling for all input types.
      */
     private void processInput() {
-        Direction currentDirection = inputHandler.getCurrentDirection();
-        
-        // Only queue movement if not already queued this frame
-        if (currentDirection != Direction.NONE) {
-            if (actionQueue.peekNextAction() == null || 
-                !(actionQueue.peekNextAction() instanceof InputQueue.MoveAction)) {
-                actionQueue.enqueueMove(currentDirection, () -> {
-                    gameService.processPlayerAction(currentDirection);
-                });
+        try {
+            if (inputHandler == null) {
+                Logger.warn("InputHandler is null");
+                return;
             }
+            
+            Direction currentDirection = inputHandler.getCurrentDirection();
+            
+            // Only queue movement if not already queued this frame
+            if (currentDirection != Direction.NONE) {
+                if (actionQueue.peekNextAction() == null || 
+                    !(actionQueue.peekNextAction() instanceof InputQueue.MoveAction)) {
+                    actionQueue.enqueueMove(currentDirection, () -> {
+                        try {
+                            gameService.processPlayerAction(currentDirection);
+                        } catch (Exception e) {
+                            Logger.error("Movement failed: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        } catch (Exception e) {
+            Logger.error("Error in processInput: " + e.getMessage());
         }
     }
 
