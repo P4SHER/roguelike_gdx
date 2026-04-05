@@ -18,6 +18,7 @@ import io.github.example.domain.entities.Enemy;
 import io.github.example.domain.entities.Item;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.events.GameEventListener;
+import io.github.example.presentation.input.InputQueue;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,8 +45,9 @@ public class GameScreen implements Screen {
     private List<String> actionLog;
 
     // Turn-based gameplay loop
-    private final Queue<Direction> inputQueue = new LinkedList<>();
+    private final InputQueue actionQueue = new InputQueue();
     private boolean turnProcessed = false;
+    private Direction queuedDirection = Direction.NONE;
 
     public interface GameCallback {
         void onPause();
@@ -130,7 +132,9 @@ public class GameScreen implements Screen {
 
     private void handlePlayerMove(Direction direction) {
         if (direction != Direction.NONE) {
-            inputQueue.offer(direction);
+            actionQueue.enqueueMove(direction, () -> {
+                gameService.processPlayerAction(direction);
+            });
         }
     }
 
@@ -138,31 +142,34 @@ public class GameScreen implements Screen {
         if (gameService == null || gameService.getSession() == null) {
             return;
         }
-        try {
-            boolean success = gameService.useItemFromBackpack(slotIndex, false);
-            if (success) {
-                Logger.info("Used item from slot " + slotIndex);
-                addActionLog("Used item");
-            } else {
-                Logger.warn("Could not use item from slot " + slotIndex);
+        actionQueue.enqueueItemUse(slotIndex, () -> {
+            try {
+                boolean success = gameService.useItemFromBackpack(slotIndex, false);
+                if (success) {
+                    Logger.info("Used item from slot " + slotIndex);
+                    addActionLog("Used item");
+                } else {
+                    Logger.warn("Could not use item from slot " + slotIndex);
+                }
+            } catch (Exception e) {
+                Logger.error("Error using item: " + e.getMessage());
             }
-        } catch (Exception e) {
-            Logger.error("Error using item: " + e.getMessage());
-        }
+        });
     }
 
     private void handleWaitAction() {
         if (gameService == null || gameService.getSession() == null) {
             return;
         }
-        try {
-            // Wait is a no-op action for the player, but enemies still act
-            gameService.processPlayerAction(Direction.NONE);
-            Logger.info("Player waited");
-            addActionLog("Waited");
-        } catch (Exception e) {
-            Logger.error("Error during wait action: " + e.getMessage());
-        }
+        actionQueue.enqueueWait(() -> {
+            try {
+                gameService.processPlayerAction(Direction.NONE);
+                Logger.info("Player waited");
+                addActionLog("Waited");
+            } catch (Exception e) {
+                Logger.error("Error during wait action: " + e.getMessage());
+            }
+        });
     }
 
     private void handleToggleInventory() {
@@ -273,26 +280,27 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta, SpriteBatch batch) {
         try {
-            // 1. Process input for this frame
-            handleInputQueue();
-            
-            // 2. Update game logic (turn-based)
+            // 1. Check if we should process a turn
             if (shouldProcessTurn()) {
-                Direction direction = getNextDirection();
-                if (direction != Direction.NONE) {
-                    gameService.processPlayerAction(direction);
+                // 2. Get the next action from the queue
+                InputQueue.GameAction nextAction = actionQueue.getNextAction();
+                if (nextAction != null) {
+                    nextAction.execute();
                     fireGameEventCallbacks();
-                } else if (!inputQueue.isEmpty()) {
-                    // Consume queued direction
-                    inputQueue.poll();
+                    Logger.debug("Executed action: " + nextAction.getDescription());
                 }
                 turnProcessed = false;
             }
             
-            // 3. Update camera to follow player
+            // 3. Check if there are more actions queued
+            if (actionQueue.hasActions()) {
+                turnProcessed = true;
+            }
+            
+            // 4. Update camera to follow player
             updateCameraPosition(delta);
             
-            // 4. Update camera and render all layers
+            // 5. Update camera and render all layers
             renderer.updateCamera();
             renderer.render(delta);
         } catch (Exception e) {
@@ -302,19 +310,19 @@ public class GameScreen implements Screen {
     }
 
     private void handleInputQueue() {
-        if (!inputQueue.isEmpty() && !turnProcessed) {
+        if (!actionQueue.hasActions() && !turnProcessed) {
             turnProcessed = true;
         }
     }
 
     private boolean shouldProcessTurn() {
-        return turnProcessed;
+        return turnProcessed || actionQueue.hasActions();
     }
 
     private Direction getNextDirection() {
         Direction currentDir = inputHandler.getCurrentDirection();
-        if (currentDir != Direction.NONE && !inputQueue.isEmpty()) {
-            inputQueue.poll();
+        if (currentDir != Direction.NONE && actionQueue.hasActions()) {
+            actionQueue.getNextAction();
         }
         return currentDir;
     }
