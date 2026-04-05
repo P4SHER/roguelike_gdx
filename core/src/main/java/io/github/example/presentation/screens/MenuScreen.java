@@ -34,34 +34,9 @@ public class MenuScreen implements Screen {
 
     @Override
     public void render(float delta, SpriteBatch batch) {
-        // Очищаем фон (черный)
-        batch.setColor(ColorScheme.BACKGROUND_MENU);
-        batch.draw(createFilledTexture(), 0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT);
-        batch.setColor(1, 1, 1, 1); // Reset color
-
-        // Отрисовываем заголовок
-        float centerX = Constants.SCREEN_WIDTH / 2f;
-        float titleY = Constants.SCREEN_HEIGHT * 0.8f;
-
-        // Отрисовываем кнопки (текстурировано позже, сейчас просто обозначим)
-        float buttonWidth = Constants.BUTTON_WIDTH;
-        float buttonHeight = Constants.BUTTON_HEIGHT;
-        float startY = Constants.SCREEN_HEIGHT * 0.5f;
-        float spacing = 80;
-
-        String[] options = {"Новая игра", "Загрузить", "Leaderboard", "Выход"};
-
-        for (int i = 0; i < OPTION_COUNT; i++) {
-            float y = startY - (i * spacing);
-            float x = centerX - buttonWidth / 2;
-
-            // Выбранная опция подсвечена
-            if (i == selectedOption) {
-                Logger.debug("[> " + options[i] + " <]");
-            } else {
-                Logger.debug("   " + options[i]);
-            }
-        }
+        // MenuScreen не рендерит спрайты
+        // Рендеринг меню обрабатывается через UI/Scene2D или отдельно
+        Logger.debug("MenuScreen render");
     }
 
     @Override
