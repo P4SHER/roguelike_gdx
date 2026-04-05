@@ -5,6 +5,7 @@
 **Total Project Phases:** 10  
 **Status:** Phase 5 (72% complete - Presentation Layer Finalization)  
 **Current Progress:** 18/25 Phase 5 tasks done  
+**Latest:** Phase 4 complete with Kenney asset integration + launcher fixes
 
 ---
 
@@ -113,11 +114,16 @@
   6. UI layer (HUD, inventory)
 
 ### Completed Tasks:
-- ✅ Kenney tileset integrated
-- ✅ Sprite atlas loading
+- ✅ Kenney tileset integrated (160 tiles, 8×8 px sprites)
+- ✅ Sprite organization into /tiles, /characters, /items
 - ✅ Orthographic camera with bounds
-- ✅ Layer rendering pipeline
+- ✅ Layer rendering pipeline (6-layer composition)
 - ✅ Asset caching (prevent memory leaks)
+- ✅ TileLayerRenderer using Kenney tileset
+- ✅ ActorLayerRenderer using Kenney character sprites
+- ✅ ItemLayerRenderer using Kenney item sprites
+- ✅ Fix launcher main class configuration
+- ✅ Game window successfully launches and displays
 
 ---
 
