@@ -10,10 +10,14 @@ import io.github.example.domain.entities.Player;
 import io.github.example.domain.level.Coordinates;
 import io.github.example.domain.level.Level;
 import io.github.example.presentation.util.Constants;
+import io.github.example.presentation.util.Logger;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Рендерер слоя тумана войны (видимость).
  * Отрисовывает два слоя: видимое (прозрачно) и неисследованное (темно).
+ * Optimization: Caches visibility calculations and only recalculates when player moves to new tile.
  */
 public class FogLayerRenderer extends AbstractLayerRenderer {
     private final Level level;
@@ -23,6 +27,12 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
     private final boolean[][] visible;
     private Sprite fogSprite;
     private Sprite exploredSprite;
+
+    // Cache optimization
+    private int lastCachedPlayerX = -1;
+    private int lastCachedPlayerY = -1;
+    private final Set<String> cachedVisibleTiles = new HashSet<>();
+    private boolean cacheValid = false;
 
     public FogLayerRenderer(Level level, Player player) {
         super("FogLayer");
@@ -62,7 +72,7 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
     @Override
     public void init() {
         super.init();
-        debugLog("Инициализирован с видением " + visionRange + " тайлов");
+        Logger.debug("FogLayer инициализирован с видением " + visionRange + " тайлов");
     }
 
     @Override
@@ -71,33 +81,41 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
             return;
         }
 
-        // Обновляем туман войны
-        updateFogOfWar();
-
         Coordinates playerCoord = player.getCoordinates();
         if (playerCoord == null) {
             return;
         }
 
-        int playerX = playerCoord.getX();
-        int playerY = playerCoord.getY();
+        int playerTileX = playerCoord.getX();
+        int playerTileY = playerCoord.getY();
 
-        boolean[][] tiles = new boolean[level.getTiles().length][level.getTiles()[0].length];
+        // Check if player moved to a new tile
+        boolean playerMoved = playerTileX != lastCachedPlayerX || playerTileY != lastCachedPlayerY;
 
-        // Строим сетку видимости и исследованности
-        for (int y = 0; y < tiles.length; y++) {
-            for (int x = 0; x < tiles[y].length; x++) {
-                if (visible[y][x]) {
-                    tiles[y][x] = true; // Видимо - прозрачно
-                } else if (explored[y][x]) {
-                    tiles[y][x] = false; // Исследовано - полутень
-                }
-            }
+        // Recalculate visibility only when player moves to new tile
+        if (playerMoved) {
+            updateFogOfWar();
+            lastCachedPlayerX = playerTileX;
+            lastCachedPlayerY = playerTileY;
+            cacheValid = true;
+            Logger.debug("FOW cache invalidated at (" + playerTileX + ", " + playerTileY + ")");
         }
 
+        // Render fog layer
+        renderFogLayer(batch, camera);
+    }
+
+    /**
+     * Renders the fog of war layer using cached visibility data.
+     */
+    private void renderFogLayer(SpriteBatch batch, OrthographicCamera camera) {
+        boolean[][] tiles = visible;
+        int height = tiles.length;
+        int width = height > 0 ? tiles[0].length : 0;
+
         // Отрисовываем слой тумана
-        for (int y = 0; y < tiles.length; y++) {
-            for (int x = 0; x < tiles[y].length; x++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
                 float pixelX = x * Constants.TILE_SIZE;
                 float pixelY = y * Constants.TILE_SIZE;
 
@@ -113,8 +131,6 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
                 }
             }
         }
-
-        debugLog("Туман войны обновлен");
     }
 
     /**
@@ -128,6 +144,7 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Обновляет туман войны на основе позиции игрока.
+     * Called only when player moves to a new tile.
      */
     private void updateFogOfWar() {
         Coordinates playerCoord = player.getCoordinates();
@@ -192,6 +209,7 @@ public class FogLayerRenderer extends AbstractLayerRenderer {
         if (exploredSprite != null && exploredSprite.getTexture() != null) {
             exploredSprite.getTexture().dispose();
         }
+        cachedVisibleTiles.clear();
         super.dispose();
     }
 }

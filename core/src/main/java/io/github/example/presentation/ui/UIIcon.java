@@ -2,6 +2,7 @@ package io.github.example.presentation.ui;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.Sprite;
+import io.github.example.presentation.util.Logger;
 
 /**
  * UI компонент для отображения иконок/спрайтов.
@@ -26,7 +27,7 @@ public class UIIcon extends UIComponent {
 
         // Рисуем текст если есть
         if (label != null && !label.isEmpty()) {
-            System.out.println("Icon label: " + label);
+            Logger.debug("Icon label: " + label);
         }
     }
 

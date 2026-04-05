@@ -1,8 +1,11 @@
 package io.github.example.presentation.screens;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Pixmap;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.ColorScheme;
+import io.github.example.presentation.util.Logger;
 
 /**
  * Экран паузы.
@@ -12,6 +15,8 @@ import io.github.example.presentation.util.ColorScheme;
 public class PauseScreen implements Screen {
     private int selectedOption = 0; // 0 = Продолжить, 1 = Инвентарь, 2 = Выход
     private static final int OPTION_COUNT = 3;
+    private static Texture filledTexture;
+    private static final Object textureLock = new Object();
 
     private PauseCallback callback;
 
@@ -27,7 +32,7 @@ public class PauseScreen implements Screen {
 
     @Override
     public void show() {
-        System.out.println("PauseScreen показан");
+        Logger.info("PauseScreen показан");
         selectedOption = 0; // Первый элемент = Продолжить
     }
 
@@ -35,7 +40,7 @@ public class PauseScreen implements Screen {
     public void render(float delta, SpriteBatch batch) {
         // Рисуем полупрозрачный оверлей
         batch.setColor(0, 0, 0, 0.7f);
-        batch.draw(createFilledTexture(), 0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT);
+        batch.draw(getFilledTexture(), 0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT);
         batch.setColor(1, 1, 1, 1); // Reset color
 
         // Рисуем меню в центре экрана
@@ -43,15 +48,15 @@ public class PauseScreen implements Screen {
         float centerY = Constants.SCREEN_HEIGHT / 2f;
 
         // Заголовок
-        System.out.println("=== ПАУЗА ===");
+        Logger.info("=== ПАУЗА ===");
 
         String[] options = {"Продолжить", "Инвентарь", "Выход в меню"};
 
         for (int i = 0; i < OPTION_COUNT; i++) {
             if (i == selectedOption) {
-                System.out.println("[> " + options[i] + " <]");
+                Logger.info("[> " + options[i] + " <]");
             } else {
-                System.out.println("   " + options[i]);
+                Logger.info("   " + options[i]);
             }
         }
     }
@@ -63,12 +68,13 @@ public class PauseScreen implements Screen {
 
     @Override
     public void hide() {
-        System.out.println("PauseScreen скрыт");
+        Logger.debug("PauseScreen скрыт");
     }
 
     @Override
     public void dispose() {
-        System.out.println("PauseScreen очищен");
+        disposeFilledTexture();
+        Logger.debug("PauseScreen очищен");
     }
 
     @Override
@@ -109,17 +115,17 @@ public class PauseScreen implements Screen {
         if (callback != null) {
             switch (selectedOption) {
                 case 0:
-                    System.out.println("Продолжить выбрано");
+                    Logger.debug("Продолжить выбрано");
                     callback.onResume();
                     break;
 
                 case 1:
-                    System.out.println("Инвентарь выбран");
+                    Logger.debug("Инвентарь выбран");
                     callback.onInventory();
                     break;
 
                 case 2:
-                    System.out.println("Выход в меню выбран");
+                    Logger.debug("Выход в меню выбран");
                     callback.onMainMenu();
                     break;
             }
@@ -130,13 +136,35 @@ public class PauseScreen implements Screen {
         UP, DOWN, LEFT, RIGHT, SELECT, CANCEL
     }
 
-    // Временный метод для создания простой текстуры
-    private static com.badlogic.gdx.graphics.Texture createFilledTexture() {
-        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-        pixmap.setColor(0, 0, 0, 0.7f);
-        pixmap.fill();
-        com.badlogic.gdx.graphics.Texture texture = new com.badlogic.gdx.graphics.Texture(pixmap);
-        pixmap.dispose();
-        return texture;
+    /**
+     * Gets or creates a static filled texture.
+     */
+    private static Texture getFilledTexture() {
+        if (filledTexture == null) {
+            synchronized (textureLock) {
+                if (filledTexture == null) {
+                    Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                    pixmap.setColor(0, 0, 0, 0.7f);
+                    pixmap.fill();
+                    filledTexture = new Texture(pixmap);
+                    pixmap.dispose();
+                    Logger.debug("PauseScreen filledTexture created");
+                }
+            }
+        }
+        return filledTexture;
+    }
+
+    /**
+     * Disposes the static texture.
+     */
+    public static void disposeFilledTexture() {
+        synchronized (textureLock) {
+            if (filledTexture != null) {
+                filledTexture.dispose();
+                filledTexture = null;
+                Logger.debug("PauseScreen filledTexture disposed");
+            }
+        }
     }
 }

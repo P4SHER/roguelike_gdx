@@ -3,20 +3,22 @@ package io.github.example.presentation.screens;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.ColorScheme;
+import io.github.example.presentation.util.Logger;
 
 /**
  * Главное меню игры.
- * Кнопки: "Новая игра", "Загрузить", "Выход".
+ * Кнопки: "Новая игра", "Загрузить", "Выход", "Leaderboard".
  */
 public class MenuScreen implements Screen {
-    private int selectedOption = 0; // 0 = Новая игра, 1 = Загрузить, 2 = Выход
-    private static final int OPTION_COUNT = 3;
+    private int selectedOption = 0; // 0 = Новая игра, 1 = Загрузить, 2 = Leaderboard, 3 = Выход
+    private static final int OPTION_COUNT = 4;
 
     private MenuCallback callback;
 
     public interface MenuCallback {
         void onNewGame();
         void onLoadGame();
+        void onLeaderboard();
         void onExit();
     }
 
@@ -26,7 +28,7 @@ public class MenuScreen implements Screen {
 
     @Override
     public void show() {
-        System.out.println("MenuScreen показан");
+        Logger.info("MenuScreen показан");
         selectedOption = 0;
     }
 
@@ -47,7 +49,7 @@ public class MenuScreen implements Screen {
         float startY = Constants.SCREEN_HEIGHT * 0.5f;
         float spacing = 80;
 
-        String[] options = {"Новая игра", "Загрузить", "Выход"};
+        String[] options = {"Новая игра", "Загрузить", "Leaderboard", "Выход"};
 
         for (int i = 0; i < OPTION_COUNT; i++) {
             float y = startY - (i * spacing);
@@ -55,10 +57,9 @@ public class MenuScreen implements Screen {
 
             // Выбранная опция подсвечена
             if (i == selectedOption) {
-                // Рисуем прямоугольник выделения (позже будет UI компонент)
-                System.out.println("[> " + options[i] + " <]");
+                Logger.debug("[> " + options[i] + " <]");
             } else {
-                System.out.println("   " + options[i]);
+                Logger.debug("   " + options[i]);
             }
         }
     }
@@ -70,12 +71,12 @@ public class MenuScreen implements Screen {
 
     @Override
     public void hide() {
-        System.out.println("MenuScreen скрыт");
+        Logger.debug("MenuScreen скрыт");
     }
 
     @Override
     public void dispose() {
-        System.out.println("MenuScreen очищен");
+        Logger.debug("MenuScreen очищен");
     }
 
     @Override
@@ -109,15 +110,19 @@ public class MenuScreen implements Screen {
         if (callback != null) {
             switch (selectedOption) {
                 case 0:
-                    System.out.println("Новая игра выбрана");
+                    Logger.info("Новая игра выбрана");
                     callback.onNewGame();
                     break;
                 case 1:
-                    System.out.println("Загрузить выбрано");
+                    Logger.info("Загрузить выбрано");
                     callback.onLoadGame();
                     break;
                 case 2:
-                    System.out.println("Выход выбран");
+                    Logger.info("Leaderboard выбран");
+                    callback.onLeaderboard();
+                    break;
+                case 3:
+                    Logger.info("Выход выбран");
                     callback.onExit();
                     break;
             }

@@ -4,6 +4,9 @@ package io.github.example.presentation.util;
  * Константы для presentation слоя.
  */
 public class Constants {
+    // Logging
+    public static final boolean DEBUG_MODE = true;
+
     // Размеры экрана
     public static final int SCREEN_WIDTH = 1920;
     public static final int SCREEN_HEIGHT = 1080;

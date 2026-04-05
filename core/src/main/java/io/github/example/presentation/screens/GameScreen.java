@@ -5,6 +5,7 @@ import io.github.example.presentation.renderer.MainRenderer;
 import io.github.example.presentation.input.InputHandler;
 import io.github.example.presentation.assets.AssetManager;
 import io.github.example.presentation.renderer.layers.*;
+import io.github.example.presentation.util.Logger;
 import io.github.example.domain.service.Direction;
 import io.github.example.domain.service.GameService;
 import io.github.example.domain.service.GameSession;
@@ -27,6 +28,9 @@ public class GameScreen implements Screen {
 
     private GameCallback callback;
     private boolean layersInitialized;
+    private EffectsLayerRenderer effectsLayerRenderer;
+    private UILayerRenderer uiLayerRenderer;
+    private List<String> actionLog;
 
     public interface GameCallback {
         void onPause();
@@ -39,6 +43,7 @@ public class GameScreen implements Screen {
         this.inputHandler = inputHandler;
         this.assetManager = assetManager;
         this.layersInitialized = false;
+        this.actionLog = new ArrayList<>();
 
         // Устанавливаем слушателя ввода для этого экрана
         setupInputListener();
@@ -69,10 +74,10 @@ public class GameScreen implements Screen {
 
     @Override
     public void show() {
-        System.out.println("GameScreen показан");
+        Logger.info("GameScreen показан");
         // Инициализируем уровень, персонажа и т.д.
         if (gameService != null) {
-            System.out.println("GameService инициализирован");
+            Logger.debug("GameService инициализирован");
             setupLayers();
         }
     }
@@ -80,6 +85,7 @@ public class GameScreen implements Screen {
     /**
      * Устанавливает все слои рендеринга.
      * Вызывается один раз при show().
+     * Z-order: Tile (0) → Actor (1) → Item (2) → Fog (3) → Effects (4) → UI (5)
      */
     private void setupLayers() {
         if (layersInitialized) {
@@ -87,13 +93,13 @@ public class GameScreen implements Screen {
         }
 
         if (gameService == null) {
-            System.err.println("GameService не инициализирована");
+            Logger.error("GameService не инициализирована");
             return;
         }
 
         GameSession gameSession = gameService.getSession();
         if (gameSession == null) {
-            System.err.println("GameSession не инициализирована");
+            Logger.error("GameSession не инициализирована");
             return;
         }
 
@@ -102,18 +108,25 @@ public class GameScreen implements Screen {
         List<Enemy> enemies = level != null ? level.getAllEnemies() : new ArrayList<>();
 
         if (level == null || player == null) {
-            System.err.println("Level или Player не инициализированы");
+            Logger.error("Level или Player не инициализированы");
             return;
         }
 
-        // Z-order слоев: Tile (0) → Actor (1) → Item (2) → Fog (3)
+        // Z-order слоев: Tile (0) → Actor (1) → Item (2) → Fog (3) → Effects (4) → UI (5)
         renderer.addLayer(new TileLayerRenderer(level, assetManager));
         renderer.addLayer(new ActorLayerRenderer(player, enemies, assetManager));
         renderer.addLayer(new ItemLayerRenderer(level, assetManager));
         renderer.addLayer(new FogLayerRenderer(level, player));
+        
+        // Add Effects and UI layers
+        effectsLayerRenderer = new EffectsLayerRenderer();
+        renderer.addLayer(effectsLayerRenderer);
+        
+        uiLayerRenderer = new UILayerRenderer(player, actionLog);
+        renderer.addLayer(uiLayerRenderer);
 
         layersInitialized = true;
-        System.out.println("Слои рендеринга инициализированы");
+        Logger.info("Слои рендеринга инициализированы (6 layers)");
     }
 
     @Override
@@ -139,7 +152,7 @@ public class GameScreen implements Screen {
         Direction direction = inputHandler.getCurrentDirection();
         if (direction != Direction.NONE) {
             // Отправляем команду движения в domain слой
-            System.out.println("Движение: " + direction);
+            Logger.debug("Движение: " + direction);
             // gameService.movePlayer(direction);
         }
     }
@@ -156,12 +169,12 @@ public class GameScreen implements Screen {
 
         switch (action) {
             case ATTACK:
-                System.out.println("Атака!");
+                Logger.info("Атака!");
                 // gameService.attackNearestEnemy();
                 break;
 
             case INTERACT:
-                System.out.println("Взаимодействие!");
+                Logger.info("Взаимодействие!");
                 // gameService.interactWithNearby();
                 break;
 
@@ -190,12 +203,12 @@ public class GameScreen implements Screen {
 
     @Override
     public void hide() {
-        System.out.println("GameScreen скрыт");
+        Logger.debug("GameScreen скрыт");
     }
 
     @Override
     public void dispose() {
-        System.out.println("GameScreen очищен");
+        Logger.debug("GameScreen очищен");
         renderer.dispose();
     }
 

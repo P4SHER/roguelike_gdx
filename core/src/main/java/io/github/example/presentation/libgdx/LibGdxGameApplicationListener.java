@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import io.github.example.presentation.PresentationLayer;
 import io.github.example.presentation.input.InputHandler;
 import io.github.example.presentation.screens.MenuScreen;
+import io.github.example.presentation.util.Logger;
 
 /**
  * Главное приложение LibGDX для игры Roguelike.
@@ -19,7 +20,7 @@ public class LibGdxGameApplicationListener implements ApplicationListener {
 
     @Override
     public void create() {
-        System.out.println("Приложение запускается...");
+        Logger.info("Приложение запускается...");
 
         // Инициализируем основные компоненты
         batch = new SpriteBatch();
@@ -33,25 +34,31 @@ public class LibGdxGameApplicationListener implements ApplicationListener {
         MenuScreen menuScreen = new MenuScreen(new MenuScreen.MenuCallback() {
             @Override
             public void onNewGame() {
-                System.out.println("Начало новой игры");
+                Logger.info("Начало новой игры");
                 // TODO: Создать и запустить новую игру
             }
 
             @Override
             public void onLoadGame() {
-                System.out.println("Загрузка игры");
+                Logger.info("Загрузка игры");
                 // TODO: Загрузить сохраненную игру
             }
 
             @Override
+            public void onLeaderboard() {
+                Logger.info("Открытие таблицы лидеров");
+                // TODO: Открыть экран таблицы лидеров
+            }
+
+            @Override
             public void onExit() {
-                System.out.println("Выход из игры");
+                Logger.info("Выход из игры");
                 Gdx.app.exit();
             }
         });
         presentationLayer.setInitialScreen(menuScreen);
 
-        System.out.println("Приложение готово!");
+        Logger.info("Приложение готово!");
     }
 
     @Override
@@ -69,25 +76,25 @@ public class LibGdxGameApplicationListener implements ApplicationListener {
 
     @Override
     public void resize(int width, int height) {
-        System.out.println("Окно изменило размер: " + width + "x" + height);
+        Logger.debug("Окно изменило размер: " + width + "x" + height);
         presentationLayer.resize(width, height);
     }
 
     @Override
     public void pause() {
-        System.out.println("Приложение паузировано");
+        Logger.debug("Приложение паузировано");
     }
 
     @Override
     public void resume() {
-        System.out.println("Приложение возобновлено");
+        Logger.debug("Приложение возобновлено");
     }
 
     @Override
     public void dispose() {
-        System.out.println("Приложение завершается...");
+        Logger.info("Приложение завершается...");
         presentationLayer.dispose();
         batch.dispose();
-        System.out.println("Приложение закрыто");
+        Logger.info("Приложение закрыто");
     }
 }

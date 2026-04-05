@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.utils.Disposable;
+import io.github.example.presentation.util.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -51,7 +52,7 @@ public class AssetManager implements Disposable {
 
         try {
             if (!Gdx.files.internal(fullPath).exists()) {
-                System.err.println("Спрайт не найден: " + fullPath);
+                Logger.warn("Спрайт не найден: " + fullPath);
                 return new Sprite(missingSprite);
             }
 
@@ -61,9 +62,10 @@ public class AssetManager implements Disposable {
             spriteCache.put(key, sprite);
             textureCache.putIfAbsent(fullPath, texture);
 
+            Logger.debug("Loading sprite: " + fullPath);
             return sprite;
         } catch (Exception e) {
-            System.err.println("Ошибка загрузки спрайта: " + fullPath + " - " + e.getMessage());
+            Logger.error("Ошибка загрузки спрайта: " + fullPath, e);
             return new Sprite(missingSprite);
         }
     }
@@ -82,7 +84,7 @@ public class AssetManager implements Disposable {
 
         try {
             if (!Gdx.files.internal(fullPath).exists()) {
-                System.err.println("Спрайт-лист не найден: " + fullPath);
+                Logger.warn("Спрайт-лист не найден: " + fullPath);
                 Sprite[] empty = new Sprite[1];
                 empty[0] = new Sprite(missingSprite);
                 return empty;
@@ -109,9 +111,10 @@ public class AssetManager implements Disposable {
             }
 
             textureCache.putIfAbsent(fullPath, texture);
+            Logger.debug("Loading sprite sheet: " + fullPath + " (" + frames + " frames)");
             return sprites;
         } catch (Exception e) {
-            System.err.println("Ошибка загрузки спрайт-листа: " + fullPath + " - " + e.getMessage());
+            Logger.error("Ошибка загрузки спрайт-листа: " + fullPath, e);
             Sprite[] empty = new Sprite[1];
             empty[0] = new Sprite(missingSprite);
             return empty;

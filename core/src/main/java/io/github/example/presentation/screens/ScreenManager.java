@@ -1,6 +1,7 @@
 package io.github.example.presentation.screens;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import io.github.example.presentation.util.Logger;
 import java.util.Stack;
 
 /**
@@ -109,7 +110,7 @@ public class ScreenManager {
             try {
                 screen.dispose();
             } catch (Exception e) {
-                System.err.println("Ошибка при очистке экрана: " + screen.getName() + " - " + e.getMessage());
+                Logger.error("Ошибка при очистке экрана: " + screen.getName(), e);
             }
         }
         screenStack.clear();

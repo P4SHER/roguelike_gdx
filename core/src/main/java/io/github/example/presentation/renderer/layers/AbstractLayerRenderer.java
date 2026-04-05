@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import io.github.example.presentation.renderer.LayerRenderer;
 import io.github.example.presentation.renderer.culling.CullingSystem;
+import io.github.example.presentation.util.Logger;
 
 /**
  * Абстрактный базовый класс для всех слоев рендеринга.
@@ -22,7 +23,7 @@ public abstract class AbstractLayerRenderer implements LayerRenderer {
 
     @Override
     public void init() {
-        System.out.println("Инициализирован слой: " + layerName);
+        Logger.debug("Инициализирован слой: " + layerName);
     }
 
     @Override
@@ -30,7 +31,7 @@ public abstract class AbstractLayerRenderer implements LayerRenderer {
 
     @Override
     public void dispose() {
-        System.out.println("Слой очищен: " + layerName);
+        Logger.debug("Слой очищен: " + layerName);
     }
 
     @Override
@@ -43,7 +44,7 @@ public abstract class AbstractLayerRenderer implements LayerRenderer {
      */
     public void setVisible(boolean visible) {
         this.isVisible = visible;
-        System.out.println("Слой " + layerName + " видимость: " + visible);
+        Logger.debug("Слой " + layerName + " видимость: " + visible);
     }
 
     /**
@@ -64,6 +65,6 @@ public abstract class AbstractLayerRenderer implements LayerRenderer {
      * Логирование для отладки.
      */
     protected void debugLog(String message) {
-        System.out.println("[" + layerName + "] " + message);
+        Logger.debug("[" + layerName + "] " + message);
     }
 }

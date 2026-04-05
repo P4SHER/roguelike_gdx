@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import io.github.example.presentation.camera.CameraController;
 import io.github.example.presentation.util.ColorScheme;
+import io.github.example.presentation.util.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public class MainRenderer {
     public void addLayer(LayerRenderer layer) {
         layers.add(layer);
         layer.init();
-        System.out.println("Добавлен слой рендеринга: " + layer.getName());
+        Logger.debug("Добавлен слой рендеринга: " + layer.getName());
     }
 
     /**
@@ -104,7 +105,7 @@ public class MainRenderer {
             try {
                 layer.dispose();
             } catch (Exception e) {
-                System.err.println("Ошибка при очистке слоя: " + layer.getName() + " - " + e.getMessage());
+                Logger.error("Ошибка при очистке слоя: " + layer.getName(), e);
             }
         }
         cameraController.dispose();

@@ -1,15 +1,23 @@
 package io.github.example.presentation.ui;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Pixmap;
 import io.github.example.presentation.util.ColorScheme;
+import io.github.example.presentation.util.Logger;
 
 /**
  * UI кнопка с состояниями (idle, hover, pressed).
+ * Uses a static texture to avoid memory leaks from repeated texture creation.
  */
 public class UIButton extends UIComponent {
     private String label;
     private ButtonListener listener;
     private ButtonState state = ButtonState.IDLE;
+
+    // Static texture shared by all buttons
+    private static Texture buttonTexture;
+    private static final Object textureSync = new Object();
 
     public enum ButtonState {
         IDLE,
@@ -24,6 +32,39 @@ public class UIButton extends UIComponent {
     public UIButton(float x, float y, float width, float height, String label) {
         super(x, y, width, height);
         this.label = label;
+        initializeButtonTexture();
+    }
+
+    /**
+     * Initializes the static button texture on first use.
+     */
+    public static void initializeButtonTexture() {
+        if (buttonTexture != null) {
+            return;
+        }
+        synchronized (textureSync) {
+            if (buttonTexture == null) {
+                Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pixmap.setColor(0.2f, 0.2f, 0.2f, 1f);
+                pixmap.fill();
+                buttonTexture = new Texture(pixmap);
+                pixmap.dispose();
+                Logger.debug("Button texture initialized");
+            }
+        }
+    }
+
+    /**
+     * Disposes the static button texture when no longer needed.
+     */
+    public static void disposeButtonTexture() {
+        synchronized (textureSync) {
+            if (buttonTexture != null) {
+                buttonTexture.dispose();
+                buttonTexture = null;
+                Logger.debug("Button texture disposed");
+            }
+        }
     }
 
     public void setListener(ButtonListener listener) {
@@ -36,7 +77,7 @@ public class UIButton extends UIComponent {
             return;
         }
 
-        // Определяем цвет в зависимости от состояния
+        // Determine color based on state
         com.badlogic.gdx.graphics.Color buttonColor;
         switch (state) {
             case HOVER:
@@ -49,13 +90,15 @@ public class UIButton extends UIComponent {
                 buttonColor = ColorScheme.BUTTON_IDLE;
         }
 
-        // Рисуем прямоугольник кнопки (позже будут спрайты)
-        batch.setColor(buttonColor);
-        batch.draw(createButtonTexture(), x, y, width, height);
-        batch.setColor(1, 1, 1, 1); // Reset
+        // Draw button rectangle
+        if (buttonTexture != null) {
+            batch.setColor(buttonColor);
+            batch.draw(buttonTexture, x, y, width, height);
+            batch.setColor(1, 1, 1, 1); // Reset
+        }
 
-        // Рисуем текст (упрощенно)
-        System.out.println("Button: " + label + " [" + state + "]");
+        // Debug logging
+        Logger.debug("Button: " + label + " [" + state + "]");
     }
 
     @Override
@@ -91,15 +134,5 @@ public class UIButton extends UIComponent {
 
     public ButtonState getState() {
         return state;
-    }
-
-    // Временный метод для создания текстуры кнопки
-    private static com.badlogic.gdx.graphics.Texture createButtonTexture() {
-        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-        pixmap.setColor(0.2f, 0.2f, 0.2f, 1f);
-        pixmap.fill();
-        com.badlogic.gdx.graphics.Texture texture = new com.badlogic.gdx.graphics.Texture(pixmap);
-        pixmap.dispose();
-        return texture;
     }
 }

@@ -5,6 +5,12 @@ import io.github.example.presentation.assets.AssetManager;
 import io.github.example.presentation.renderer.MainRenderer;
 import io.github.example.presentation.screens.Screen;
 import io.github.example.presentation.screens.ScreenManager;
+import io.github.example.presentation.screens.InventoryScreen;
+import io.github.example.presentation.screens.LeaderboardScreen;
+import io.github.example.presentation.screens.DeathScreen;
+import io.github.example.presentation.screens.PauseScreen;
+import io.github.example.presentation.util.Logger;
+import io.github.example.presentation.ui.UIButton;
 
 /**
  * Главная входная точка для presentation слоя.
@@ -35,9 +41,9 @@ public class PresentationLayer {
         this.mainRenderer = new MainRenderer(levelWidth, levelHeight);
         this.screenManager = new ScreenManager();
 
-        System.out.println("PresentationLayer инициализирован");
-        System.out.println("  Размер уровня: " + levelWidth + "x" + levelHeight);
-        System.out.println("  Компоненты готовы к использованию");
+        Logger.info("PresentationLayer инициализирован");
+        Logger.debug("  Размер уровня: " + levelWidth + "x" + levelHeight);
+        Logger.debug("  Компоненты готовы к использованию");
     }
 
     /**
@@ -144,11 +150,16 @@ public class PresentationLayer {
      * Очищает все ресурсы при завершении работы.
      */
     public void dispose() {
-        System.out.println("PresentationLayer очищается...");
+        Logger.info("PresentationLayer очищается...");
+        UIButton.disposeButtonTexture();
+        PauseScreen.disposeFilledTexture();
+        InventoryScreen.disposeFilledTexture();
+        LeaderboardScreen.disposeFilledTexture();
+        DeathScreen.disposeFilledTexture();
         screenManager.dispose();
         mainRenderer.dispose();
         assetManager.dispose();
         batch.dispose();
-        System.out.println("PresentationLayer очищен");
+        Logger.info("PresentationLayer очищен");
     }
 }
