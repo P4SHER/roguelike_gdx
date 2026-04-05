@@ -18,6 +18,7 @@ import io.github.example.domain.entities.Enemy;
 import io.github.example.domain.entities.Item;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.events.GameEventListener;
+import io.github.example.presentation.events.GameEventDispatcher;
 import io.github.example.presentation.input.InputQueue;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -38,6 +39,7 @@ public class GameScreen implements Screen {
     private GameCallback callback;
     private EffectCallback effectCallback;
     private GameEventListener eventListener;
+    private GameEventDispatcher eventDispatcher;
     private boolean layersInitialized;
     private EffectsLayerRenderer effectsLayerRenderer;
     private UILayerRenderer uiLayerRenderer;
@@ -70,6 +72,7 @@ public class GameScreen implements Screen {
         this.assetManager = assetManager;
         this.layersInitialized = false;
         this.actionLog = new ArrayList<>();
+        this.eventDispatcher = new GameEventDispatcher();
 
         setupInputListener();
     }
@@ -84,6 +87,9 @@ public class GameScreen implements Screen {
 
     public void setEventListener(GameEventListener listener) {
         this.eventListener = listener;
+        if (listener != null) {
+            eventDispatcher.addEventListener(listener);
+        }
     }
 
     private void setupInputListener() {
@@ -350,8 +356,33 @@ public class GameScreen implements Screen {
             
             if (player != null && level != null) {
                 checkAndPickupItems(player, level);
+                
+                // Dispatch combat and status events
+                if (player.isAlive()) {
+                    float playerX = player.getCoordinates().getX();
+                    float playerY = player.getCoordinates().getY();
+                    
+                    // Check player health changes (from combat)
+                    for (Enemy enemy : level.getAllEnemies()) {
+                        if (enemy.isAlive()) {
+                            Coordinates enemyCoords = enemy.getCoordinates();
+                            float enemyX = enemyCoords.getX();
+                            float enemyY = enemyCoords.getY();
+                            
+                            // Adjacent to player = combat occurred
+                            if (isAdjacent(playerX, playerY, enemyX, enemyY)) {
+                                eventDispatcher.onCombatDamage(enemyX, enemyY, 1, false);
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+    
+    private boolean isAdjacent(float x1, float y1, float x2, float y2) {
+        return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1 && 
+               !(x1 == x2 && y1 == y2);
     }
 
     /**
@@ -368,6 +399,10 @@ public class GameScreen implements Screen {
         if (itemAtPos != null) {
             try {
                 if (player.getBackpack().addItem(itemAtPos.copyObject())) {
+                    // Fire event through dispatcher
+                    eventDispatcher.onItemPickedUp(itemAtPos);
+                    
+                    // Also call listener if set
                     if (eventListener != null) {
                         eventListener.onItemPickedUp(itemAtPos);
                     }
@@ -424,11 +459,17 @@ public class GameScreen implements Screen {
     @Override
     public void hide() {
         Logger.debug("GameScreen hidden");
+        if (eventDispatcher != null) {
+            eventDispatcher.clearListeners();
+        }
     }
 
     @Override
     public void dispose() {
         Logger.debug("GameScreen disposed");
+        if (eventDispatcher != null) {
+            eventDispatcher.clearListeners();
+        }
         renderer.dispose();
     }
 
