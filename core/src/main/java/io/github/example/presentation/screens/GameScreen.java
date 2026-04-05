@@ -238,11 +238,7 @@ public class GameScreen implements Screen {
         }
         
         if (player != null) {
-            float pixelX = player.getCoordinates().getX() * Constants.TILE_SIZE;
-            float pixelY = player.getCoordinates().getY() * Constants.TILE_SIZE;
-            float centerX = pixelX + Constants.TILE_SIZE / 2.0f;
-            float centerY = pixelY + Constants.TILE_SIZE / 2.0f;
-            renderer.setCameraTarget(centerX, centerY);
+            renderer.followPlayer(player);
         }
     }
 

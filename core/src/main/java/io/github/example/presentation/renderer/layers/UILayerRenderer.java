@@ -8,8 +8,10 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import io.github.example.domain.entities.Player;
+import io.github.example.domain.entities.StatusEffect;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.ColorScheme;
+import io.github.example.presentation.util.StatusEffectColors;
 import io.github.example.presentation.util.Logger;
 import java.util.List;
 import java.util.LinkedList;
@@ -47,6 +49,12 @@ public class UILayerRenderer extends AbstractLayerRenderer {
     private static final int STAT_LINE_HEIGHT = 32;       // Total height including padding
     private static final int STATS_BLOCK_WIDTH = 220;
     private static final int HEALTH_BAR_TOP_MARGIN = 12;  // Space above health bar
+    
+    // Status effect HUD layout
+    private static final int STATUS_EFFECT_ICON_SIZE = 24;
+    private static final int STATUS_EFFECT_SPACING = 4;
+    private static final int STATUS_EFFECTS_PER_ROW = 5;
+    private static final int STATUS_EFFECTS_MAX = 10;
 
     /**
      * Inner class to represent an action message with lifetime tracking.
@@ -151,7 +159,7 @@ public class UILayerRenderer extends AbstractLayerRenderer {
         renderHealthBar(batch, padding, screenHeight - padding - statsBlockHeight);
 
         // Top-right: Status effects
-        renderStatusEffects(batch, screenWidth - padding - 220, screenHeight - padding);
+        renderStatusEffects(batch, screenWidth - padding - 280, screenHeight - padding);
 
         // Bottom-left: Action log with time-based fading
         updateMessageQueue(delta);
@@ -310,43 +318,115 @@ public class UILayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Renders active status effects (buffs/debuffs) at top-right.
-     * Shows up to 3 active status effects in a column format.
-     * Layout: Each effect on its own line with duration.
-     * Placeholder implementation - will be connected to status effect system.
+     * Shows effect icons (24×24px) in a grid layout with duration timers.
+     * Layout: Up to 5 effects per row, max 2 rows (10 effects total)
+     * Each effect displays as a colored circle/square with duration in seconds.
      */
     private void renderStatusEffects(SpriteBatch batch, float x, float y) {
-        if (smallFont == null) {
+        if (player == null || pixelTexture == null || smallFont == null) {
             return;
         }
 
-        batch.setColor(ColorScheme.TEXT_SECONDARY);
-        float currentY = y;
-
-        // TODO: Replace with actual status effects from player entity when system is available
-        String[] statusEffects = new String[3];
-        int effectCount = 0;
-
-        // Example placeholder effects (commented out for production):
-        // statusEffects[0] = "[POISON] 3s";
-        // statusEffects[1] = "[FIRE] 5s";
-        // statusEffects[2] = "[SLOW] 2s";
-        // effectCount = 2;
-
-        // Render up to 3 status effects
-        for (int i = 0; i < Math.min(3, effectCount); i++) {
-            if (statusEffects[i] != null && !statusEffects[i].isEmpty()) {
-                smallFont.draw(batch, statusEffects[i], x, currentY);
-                currentY -= STAT_LINE_HEIGHT;
-            }
+        List<StatusEffect> effects = player.getStatusEffects();
+        if (effects == null || effects.isEmpty()) {
+            // Show placeholder when no effects
+            batch.setColor(ColorScheme.TEXT_DISABLED);
+            smallFont.draw(batch, "No Effects", x, y);
+            batch.setColor(1, 1, 1, 1);
+            return;
         }
 
-        // Show placeholder when no effects active
-        if (effectCount == 0) {
-            batch.setColor(ColorScheme.TEXT_DISABLED);
-            smallFont.draw(batch, "No Effects", x, currentY);
+        // Limit to max displayable effects
+        int effectCount = Math.min(effects.size(), STATUS_EFFECTS_MAX);
+        float currentX = x;
+        float currentY = y;
+        int effectsInRow = 0;
+
+        for (int i = 0; i < effectCount; i++) {
+            StatusEffect effect = effects.get(i);
+            if (effect == null) {
+                continue;
+            }
+
+            // Wrap to next row after 5 effects
+            if (effectsInRow >= STATUS_EFFECTS_PER_ROW) {
+                currentX = x;
+                currentY -= STATUS_EFFECT_ICON_SIZE + STATUS_EFFECT_SPACING + 20;
+                effectsInRow = 0;
+            }
+
+            // Render effect icon and duration
+            renderStatusEffectIcon(batch, currentX, currentY, effect);
+
+            currentX += STATUS_EFFECT_ICON_SIZE + STATUS_EFFECT_SPACING;
+            effectsInRow++;
         }
 
         batch.setColor(1, 1, 1, 1);
+    }
+
+    /**
+     * Renders a single status effect icon with duration timer.
+     * Icon: 24×24px colored square
+     * Duration: Text below icon (e.g., "3.2s")
+     * 
+     * @param batch Sprite batch for rendering
+     * @param x Icon x position (left edge)
+     * @param y Icon y position (top edge)
+     * @param effect The status effect to render
+     */
+    private void renderStatusEffectIcon(SpriteBatch batch, float x, float y, StatusEffect effect) {
+        if (effect == null) {
+            return;
+        }
+
+        // Get effect color
+        Color effectColor = StatusEffectColors.getColorForEffect(effect.getType());
+        batch.setColor(effectColor);
+
+        // Draw icon background (24×24px square)
+        batch.draw(pixelTexture, x, y - STATUS_EFFECT_ICON_SIZE, STATUS_EFFECT_ICON_SIZE, STATUS_EFFECT_ICON_SIZE);
+
+        // Draw icon border
+        batch.setColor(1, 1, 1, 0.6f);
+        drawRectangleBorder(batch, x, y - STATUS_EFFECT_ICON_SIZE, STATUS_EFFECT_ICON_SIZE, STATUS_EFFECT_ICON_SIZE, 1);
+
+        // Calculate duration text and color
+        float remaining = effect.getRemainingDuration();
+        String durationText = String.format("%.1f", remaining);
+        Color durationColor = determineDurationColor(remaining);
+
+        // Draw duration text below icon
+        if (smallFont != null && glyphLayout != null) {
+            glyphLayout.setText(smallFont, durationText);
+            float textWidth = glyphLayout.width;
+            float textX = x + (STATUS_EFFECT_ICON_SIZE - textWidth) / 2f;
+            float textY = y - STATUS_EFFECT_ICON_SIZE - 8;
+
+            batch.setColor(durationColor);
+            smallFont.draw(batch, durationText, textX, textY);
+        }
+
+        batch.setColor(1, 1, 1, 1);
+    }
+
+    /**
+     * Determines the color for duration text based on remaining time.
+     * - Green: >5s remaining
+     * - Yellow: <5s remaining (warning)
+     * - Red: <2s remaining (critical)
+     * 
+     * @param remaining Remaining duration in seconds
+     * @return Color for the duration text
+     */
+    private Color determineDurationColor(float remaining) {
+        if (remaining < 2f) {
+            return new Color(1f, 0.2f, 0.2f, 1f);  // Red (critical)
+        } else if (remaining < 5f) {
+            return new Color(1f, 1f, 0.2f, 1f);    // Yellow (warning)
+        } else {
+            return new Color(0.8f, 0.8f, 0.8f, 1f); // Gray (normal)
+        }
     }
 
     /**

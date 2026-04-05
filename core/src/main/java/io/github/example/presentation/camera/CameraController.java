@@ -3,6 +3,7 @@ package io.github.example.presentation.camera;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.MathUtils;
 import io.github.example.presentation.util.Constants;
+import io.github.example.domain.entities.Player;
 
 /**
  * Управляет ортографической камерой для 2D вида сверху.
@@ -39,6 +40,23 @@ public class CameraController {
     public void setTarget(float x, float y) {
         this.targetX = x;
         this.targetY = y;
+    }
+
+    /**
+     * Следит за персонажем. Камера автоматически будет следить за его позицией.
+     * Преобразует координаты персонажа в мировые координаты и центрирует камеру на персонаже.
+     *
+     * @param player персонаж для отслеживания
+     */
+    public void followPlayer(Player player) {
+        if (player == null) {
+            return;
+        }
+        float pixelX = player.getCoordinates().getX() * Constants.TILE_SIZE;
+        float pixelY = player.getCoordinates().getY() * Constants.TILE_SIZE;
+        float centerX = pixelX + Constants.TILE_SIZE / 2.0f;
+        float centerY = pixelY + Constants.TILE_SIZE / 2.0f;
+        setTarget(centerX, centerY);
     }
 
     /**

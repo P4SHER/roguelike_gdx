@@ -61,6 +61,23 @@ public class PresentationLayer {
     }
 
     /**
+     * Выполняет плавный переход на новый экран с анимацией затемнения.
+     * @param screen новый экран
+     */
+    public void transitionToScreen(Screen screen) {
+        screenManager.transitionToScreen(screen);
+    }
+
+    /**
+     * Выполняет плавный переход на новый экран с заданной продолжительностью.
+     * @param screen новый экран
+     * @param duration продолжительность в секундах
+     */
+    public void transitionToScreen(Screen screen, float duration) {
+        screenManager.transitionToScreen(screen, duration);
+    }
+
+    /**
      * Добавляет экран поверх текущего (например, пауза).
      */
     public void pushScreen(Screen screen) {
@@ -84,6 +101,11 @@ public class PresentationLayer {
 
         // Отрисовываем текущий экран
         screenManager.render(delta, batch);
+
+        // Отрисовываем переход если он активен
+        batch.begin();
+        screenManager.renderTransition(batch, (int) levelWidth, (int) levelHeight);
+        batch.end();
     }
 
     /**

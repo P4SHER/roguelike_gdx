@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import io.github.example.presentation.camera.CameraController;
 import io.github.example.presentation.util.ColorScheme;
 import io.github.example.presentation.util.Logger;
+import io.github.example.domain.entities.Player;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,6 +42,16 @@ public class MainRenderer {
      */
     public void setCameraTarget(float x, float y) {
         cameraController.setTarget(x, y);
+    }
+
+    /**
+     * Заставляет камеру следить за персонажем.
+     * Камера автоматически будет центрирована на персонаже и плавно следить за ним.
+     *
+     * @param player персонаж для отслеживания
+     */
+    public void followPlayer(Player player) {
+        cameraController.followPlayer(player);
     }
 
     /**
