@@ -3,8 +3,16 @@ package io.github.example.presentation.screens;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import io.github.example.presentation.renderer.MainRenderer;
 import io.github.example.presentation.input.InputHandler;
+import io.github.example.presentation.assets.AssetManager;
+import io.github.example.presentation.renderer.layers.*;
 import io.github.example.domain.service.Direction;
 import io.github.example.domain.service.GameService;
+import io.github.example.domain.service.GameSession;
+import io.github.example.domain.level.Level;
+import io.github.example.domain.entities.Player;
+import io.github.example.domain.entities.Enemy;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Основной экран игры.
@@ -15,18 +23,22 @@ public class GameScreen implements Screen {
     private final GameService gameService;
     private final MainRenderer renderer;
     private final InputHandler inputHandler;
+    private final AssetManager assetManager;
 
     private GameCallback callback;
+    private boolean layersInitialized;
 
     public interface GameCallback {
         void onPause();
         void onGameOver();
     }
 
-    public GameScreen(GameService gameService, MainRenderer renderer, InputHandler inputHandler) {
+    public GameScreen(GameService gameService, MainRenderer renderer, InputHandler inputHandler, AssetManager assetManager) {
         this.gameService = gameService;
         this.renderer = renderer;
         this.inputHandler = inputHandler;
+        this.assetManager = assetManager;
+        this.layersInitialized = false;
 
         // Устанавливаем слушателя ввода для этого экрана
         setupInputListener();
@@ -61,7 +73,47 @@ public class GameScreen implements Screen {
         // Инициализируем уровень, персонажа и т.д.
         if (gameService != null) {
             System.out.println("GameService инициализирован");
+            setupLayers();
         }
+    }
+
+    /**
+     * Устанавливает все слои рендеринга.
+     * Вызывается один раз при show().
+     */
+    private void setupLayers() {
+        if (layersInitialized) {
+            return;
+        }
+
+        if (gameService == null) {
+            System.err.println("GameService не инициализирована");
+            return;
+        }
+
+        GameSession gameSession = gameService.getSession();
+        if (gameSession == null) {
+            System.err.println("GameSession не инициализирована");
+            return;
+        }
+
+        Level level = gameSession.getCurrentLevel();
+        Player player = gameSession.getPlayer();
+        List<Enemy> enemies = level != null ? level.getAllEnemies() : new ArrayList<>();
+
+        if (level == null || player == null) {
+            System.err.println("Level или Player не инициализированы");
+            return;
+        }
+
+        // Z-order слоев: Tile (0) → Actor (1) → Item (2) → Fog (3)
+        renderer.addLayer(new TileLayerRenderer(level, assetManager));
+        renderer.addLayer(new ActorLayerRenderer(player, enemies, assetManager));
+        renderer.addLayer(new ItemLayerRenderer(level, assetManager));
+        renderer.addLayer(new FogLayerRenderer(level, player));
+
+        layersInitialized = true;
+        System.out.println("Слои рендеринга инициализированы");
     }
 
     @Override

@@ -1,12 +1,12 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
 import com.googlecode.lanterna.TextCharacter;
 import com.googlecode.lanterna.graphics.TextGraphics;
-import domain.level.Coordinates;
-import domain.level.SpaceType;
-import domain.level.Tile;
-import domain.service.GameConfig;
-import domain.service.GameSession;
+import io.github.example.domain.level.Coordinates;
+import io.github.example.domain.level.SpaceType;
+import io.github.example.domain.level.Tile;
+import io.github.example.domain.service.GameConfig;
+import io.github.example.domain.service.GameSession;
 
 import java.util.ArrayList;
 import java.util.List;

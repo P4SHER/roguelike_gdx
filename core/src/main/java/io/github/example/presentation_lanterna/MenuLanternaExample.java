@@ -1,12 +1,12 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
-import domain.service.Leaderboard;
+import io.github.example.domain.service.Leaderboard;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.TextGraphics;
 import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.screen.Screen;
-import domain.service.GameRecord;
+import io.github.example.domain.service.GameRecord;
 
 import java.util.List;
 

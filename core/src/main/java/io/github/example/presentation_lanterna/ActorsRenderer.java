@@ -1,12 +1,12 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
 import com.googlecode.lanterna.TextCharacter;
 import com.googlecode.lanterna.graphics.TextGraphics;
-import domain.entities.Enemy;
-import domain.entities.Item;
-import domain.level.Coordinates;
-import domain.level.Level;
-import domain.service.GameSession;
+import io.github.example.domain.entities.Enemy;
+import io.github.example.domain.entities.Item;
+import io.github.example.domain.level.Coordinates;
+import io.github.example.domain.level.Level;
+import io.github.example.domain.service.GameSession;
 
 import java.util.Map;
 

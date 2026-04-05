@@ -1,8 +1,8 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
 import com.googlecode.lanterna.TextColor;
-import domain.entities.EnemyType;
-import domain.level.SpaceType;
+import io.github.example.domain.entities.EnemyType;
+import io.github.example.domain.level.SpaceType;
 
 /**
  * Цвета и символы для всех типов тайлов и акторов.

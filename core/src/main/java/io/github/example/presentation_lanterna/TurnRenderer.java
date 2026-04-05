@@ -1,7 +1,7 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
 import com.googlecode.lanterna.screen.Screen;
-import domain.service.GameSession;
+import io.github.example.domain.service.GameSession;
 
 public class TurnRenderer {
 

@@ -1,0 +1,197 @@
+package io.github.example.presentation.renderer.layers;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import io.github.example.domain.entities.Player;
+import io.github.example.domain.level.Coordinates;
+import io.github.example.domain.level.Level;
+import io.github.example.presentation.util.Constants;
+
+/**
+ * Рендерер слоя тумана войны (видимость).
+ * Отрисовывает два слоя: видимое (прозрачно) и неисследованное (темно).
+ */
+public class FogLayerRenderer extends AbstractLayerRenderer {
+    private final Level level;
+    private final Player player;
+    private final int visionRange;
+    private final boolean[][] explored;
+    private final boolean[][] visible;
+    private Sprite fogSprite;
+    private Sprite exploredSprite;
+
+    public FogLayerRenderer(Level level, Player player) {
+        super("FogLayer");
+        this.level = level;
+        this.player = player;
+        this.visionRange = 10; // Радиус видения в тайлах
+
+        int height = level.getTiles().length;
+        int width = level.getTiles()[0].length;
+        this.explored = new boolean[height][width];
+        this.visible = new boolean[height][width];
+
+        initializeFogSprites();
+    }
+
+    /**
+     * Инициализирует спрайты тумана.
+     */
+    private void initializeFogSprites() {
+        // Создаем спрайт полной темноты (неисследованное)
+        Pixmap pixmapFog = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmapFog.setColor(0, 0, 0, 0.8f); // Черный с прозрачностью
+        pixmapFog.fill();
+        Texture fogTexture = new Texture(pixmapFog);
+        fogSprite = new Sprite(fogTexture);
+        pixmapFog.dispose();
+
+        // Создаем спрайт для исследованного (полутень)
+        Pixmap pixmapExplored = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmapExplored.setColor(0.3f, 0.3f, 0.3f, 0.4f); // Серый с прозрачностью
+        pixmapExplored.fill();
+        Texture exploredTexture = new Texture(pixmapExplored);
+        exploredSprite = new Sprite(exploredTexture);
+        pixmapExplored.dispose();
+    }
+
+    @Override
+    public void init() {
+        super.init();
+        debugLog("Инициализирован с видением " + visionRange + " тайлов");
+    }
+
+    @Override
+    public void render(SpriteBatch batch, OrthographicCamera camera, float delta) {
+        if (!isVisible || level == null || player == null) {
+            return;
+        }
+
+        // Обновляем туман войны
+        updateFogOfWar();
+
+        Coordinates playerCoord = player.getCoordinates();
+        if (playerCoord == null) {
+            return;
+        }
+
+        int playerX = playerCoord.getX();
+        int playerY = playerCoord.getY();
+
+        boolean[][] tiles = new boolean[level.getTiles().length][level.getTiles()[0].length];
+
+        // Строим сетку видимости и исследованности
+        for (int y = 0; y < tiles.length; y++) {
+            for (int x = 0; x < tiles[y].length; x++) {
+                if (visible[y][x]) {
+                    tiles[y][x] = true; // Видимо - прозрачно
+                } else if (explored[y][x]) {
+                    tiles[y][x] = false; // Исследовано - полутень
+                }
+            }
+        }
+
+        // Отрисовываем слой тумана
+        for (int y = 0; y < tiles.length; y++) {
+            for (int x = 0; x < tiles[y].length; x++) {
+                float pixelX = x * Constants.TILE_SIZE;
+                float pixelY = y * Constants.TILE_SIZE;
+
+                if (tiles[y][x]) {
+                    // Видимая область - ничего не рисуем (прозрачно)
+                    continue;
+                } else if (explored[y][x]) {
+                    // Исследованная область - рисуем полутень
+                    renderFogTile(batch, exploredSprite, pixelX, pixelY);
+                } else {
+                    // Неисследованная - рисуем полную темноту
+                    renderFogTile(batch, fogSprite, pixelX, pixelY);
+                }
+            }
+        }
+
+        debugLog("Туман войны обновлен");
+    }
+
+    /**
+     * Отрисовывает один тайл тумана.
+     */
+    private void renderFogTile(SpriteBatch batch, Sprite sprite, float x, float y) {
+        sprite.setPosition(x, y);
+        sprite.setSize(Constants.TILE_SIZE, Constants.TILE_SIZE);
+        sprite.draw(batch);
+    }
+
+    /**
+     * Обновляет туман войны на основе позиции игрока.
+     */
+    private void updateFogOfWar() {
+        Coordinates playerCoord = player.getCoordinates();
+        if (playerCoord == null) {
+            return;
+        }
+
+        int playerX = playerCoord.getX();
+        int playerY = playerCoord.getY();
+
+        // Очищаем видимость (но не исследованность)
+        for (int y = 0; y < visible.length; y++) {
+            for (int x = 0; x < visible[y].length; x++) {
+                visible[y][x] = false;
+            }
+        }
+
+        // Обновляем видимость в зависимости от видения игрока
+        for (int y = 0; y < visible.length; y++) {
+            for (int x = 0; x < visible[y].length; x++) {
+                int distance = cullingSystem.getDistance(playerX, playerY, x, y);
+                if (distance <= visionRange) {
+                    visible[y][x] = true;
+                    explored[y][x] = true; // Видимое всегда исследовано
+                }
+            }
+        }
+    }
+
+    /**
+     * Получает видение игрока.
+     */
+    public int getVisionRange() {
+        return visionRange;
+    }
+
+    /**
+     * Получает статус видимости тайла.
+     */
+    public boolean isVisible(int x, int y) {
+        if (y >= 0 && y < visible.length && x >= 0 && x < visible[0].length) {
+            return visible[y][x];
+        }
+        return false;
+    }
+
+    /**
+     * Получает статус исследованности тайла.
+     */
+    public boolean isExplored(int x, int y) {
+        if (y >= 0 && y < explored.length && x >= 0 && x < explored[0].length) {
+            return explored[y][x];
+        }
+        return false;
+    }
+
+    @Override
+    public void dispose() {
+        if (fogSprite != null && fogSprite.getTexture() != null) {
+            fogSprite.getTexture().dispose();
+        }
+        if (exploredSprite != null && exploredSprite.getTexture() != null) {
+            exploredSprite.getTexture().dispose();
+        }
+        super.dispose();
+    }
+}

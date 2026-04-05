@@ -1,4 +1,4 @@
-package presentation_lanterna;
+package io.github.example.presentation_lanterna;
 
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.graphics.TextGraphics;
@@ -9,12 +9,12 @@ import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 
 import com.googlecode.lanterna.terminal.Terminal;
-import com.googlecode.lanterna.terminal.swing.SwingTerminalFrame; // ← правильный импорт!
+import com.googlecode.lanterna.terminal.swing.SwingTerminalFrame;
 
-import domain.entities.Item;
-import domain.entities.ItemType;
-import domain.service.*;
-import domain.unittest.Logger;
+import io.github.example.domain.entities.Item;
+import io.github.example.domain.entities.ItemType;
+import io.github.example.domain.service.*;
+import io.github.example.domain.unittest.Logger;
 
 import javax.swing.*;
 import java.util.List;

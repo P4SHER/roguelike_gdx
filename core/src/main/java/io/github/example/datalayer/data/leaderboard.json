@@ -1,0 +1,13 @@
+{
+  "leaderboard" : [ {
+    "numberTreasures" : 15,
+    "numberLevel" : 1,
+    "numberDefeatedEnemies" : 1,
+    "numberMealsEaten" : 0,
+    "numberElixirsConsumed" : 0,
+    "numberScrollsRead" : 0,
+    "damageDealt" : 10000,
+    "damageTaken" : 100,
+    "incrementMoves" : 260
+  } ]
+}
