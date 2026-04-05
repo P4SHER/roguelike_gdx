@@ -3,7 +3,7 @@ package io.github.example.presentation.screens;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import io.github.example.presentation.renderer.MainRenderer;
 import io.github.example.presentation.input.InputHandler;
-import io.github.example.presentation.input.Direction;
+import io.github.example.domain.service.Direction;
 import io.github.example.domain.service.GameService;
 
 /**
@@ -85,7 +85,7 @@ public class GameScreen implements Screen {
 
         // Получаем текущее направление из InputHandler
         Direction direction = inputHandler.getCurrentDirection();
-        if (direction.isMovement()) {
+        if (direction != Direction.NONE) {
             // Отправляем команду движения в domain слой
             System.out.println("Движение: " + direction);
             // gameService.movePlayer(direction);

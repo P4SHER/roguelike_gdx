@@ -2,13 +2,14 @@ package io.github.example.presentation.input;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputProcessor;
+import io.github.example.domain.service.Direction;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Обработчик ввода (клавиатура и мышь) для игры.
  * Реализует InputProcessor из LibGDX.
- * Кэширует нажатые клавиши для плавного движения.
+ * Кэширует нажатые клавиши для плавного движения (4 направления: UP, DOWN, LEFT, RIGHT).
  */
 public class InputHandler implements InputProcessor {
     private final Set<Integer> pressedKeys = new HashSet<>();
@@ -45,7 +46,8 @@ public class InputHandler implements InputProcessor {
 
     /**
      * Получает текущее направление движения на основе нажатых клавиш.
-     * Приоритет: W/A/S/D и соответствующие им стрелки.
+     * Приоритет: последняя нажатая клавиша выигрывает.
+     * Поддерживает только 4 направления: UP, DOWN, LEFT, RIGHT (как в domain).
      */
     public Direction getCurrentDirection() {
         boolean up = isKeyPressed(Input.Keys.W) || isKeyPressed(Input.Keys.UP);
@@ -53,13 +55,8 @@ public class InputHandler implements InputProcessor {
         boolean left = isKeyPressed(Input.Keys.A) || isKeyPressed(Input.Keys.LEFT);
         boolean right = isKeyPressed(Input.Keys.D) || isKeyPressed(Input.Keys.RIGHT);
 
-        // Определяем диагональное направление
-        if (up && left) return Direction.UP_LEFT;
-        if (up && right) return Direction.UP_RIGHT;
-        if (down && left) return Direction.DOWN_LEFT;
-        if (down && right) return Direction.DOWN_RIGHT;
-
-        // Одиночные направления
+        // Только одно направление за раз (нет диагоналей)
+        // Приоритет: if-else cascade
         if (up) return Direction.UP;
         if (down) return Direction.DOWN;
         if (left) return Direction.LEFT;
