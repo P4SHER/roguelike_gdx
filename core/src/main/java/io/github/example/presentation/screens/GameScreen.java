@@ -6,6 +6,8 @@ import io.github.example.presentation.input.InputHandler;
 import io.github.example.presentation.assets.AssetManager;
 import io.github.example.presentation.renderer.layers.*;
 import io.github.example.presentation.util.Logger;
+import io.github.example.presentation.effects.EffectFactory;
+import io.github.example.presentation.effects.ParticlePool;
 import io.github.example.domain.service.Direction;
 import io.github.example.domain.service.GameService;
 import io.github.example.domain.service.GameSession;
@@ -27,14 +29,23 @@ public class GameScreen implements Screen {
     private final AssetManager assetManager;
 
     private GameCallback callback;
+    private EffectCallback effectCallback;
     private boolean layersInitialized;
     private EffectsLayerRenderer effectsLayerRenderer;
     private UILayerRenderer uiLayerRenderer;
+    private ParticlePool particlePool;
     private List<String> actionLog;
 
     public interface GameCallback {
         void onPause();
         void onGameOver();
+    }
+
+    public interface EffectCallback {
+        void onPlayerAttack(float x, float y, int damage);
+        void onEnemyDamage(float x, float y, int damage);
+        void onPlayerHeal(float x, float y, int heal);
+        void onPlayerLevelUp(float x, float y);
     }
 
     public GameScreen(GameService gameService, MainRenderer renderer, InputHandler inputHandler, AssetManager assetManager) {
@@ -51,6 +62,10 @@ public class GameScreen implements Screen {
 
     public void setCallback(GameCallback callback) {
         this.callback = callback;
+    }
+
+    public void setEffectCallback(EffectCallback effectCallback) {
+        this.effectCallback = effectCallback;
     }
 
     private void setupInputListener() {
@@ -122,8 +137,36 @@ public class GameScreen implements Screen {
         effectsLayerRenderer = new EffectsLayerRenderer();
         renderer.addLayer(effectsLayerRenderer);
         
+        // Initialize particle system (EffectFactory uses static methods)
+        particlePool = new ParticlePool(256);
+        
         uiLayerRenderer = new UILayerRenderer(player, actionLog);
         renderer.addLayer(uiLayerRenderer);
+        
+        // Create default EffectCallback implementation
+        if (effectCallback == null) {
+            effectCallback = new EffectCallback() {
+                @Override
+                public void onPlayerAttack(float x, float y, int damage) {
+                    EffectFactory.createWeaponHit(particlePool, x, y, assetManager);
+                }
+
+                @Override
+                public void onEnemyDamage(float x, float y, int damage) {
+                    EffectFactory.createDamageNumber(particlePool, x, y, damage, assetManager);
+                }
+
+                @Override
+                public void onPlayerHeal(float x, float y, int heal) {
+                    EffectFactory.createHealNumber(particlePool, x, y, heal, assetManager);
+                }
+
+                @Override
+                public void onPlayerLevelUp(float x, float y) {
+                    EffectFactory.createLevelUp(particlePool, x, y, assetManager);
+                }
+            };
+        }
 
         layersInitialized = true;
         Logger.info("Слои рендеринга инициализированы (6 layers)");
