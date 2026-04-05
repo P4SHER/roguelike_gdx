@@ -121,22 +121,23 @@ public class TileLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Маппирует SpaceType на путь спрайта.
+     * Использует Kenney Micro Roguelike тайлы.
      */
     private String mapSpaceTypeToSpritePath(SpaceType type) {
         switch (type) {
             case Room:
-                return "tiles/floor";
+                return "tiles/tileset"; // Floor tile from Kenney atlas
             case Passage:
-                return "tiles/passage";
+                return "tiles/tileset"; // Same atlas, different index
             case Wall:
-                return "tiles/wall";
+                return "tiles/tileset"; // Wall from Kenney atlas
             case Exit:
-                return "tiles/exit";
+                return "tiles/tileset"; // Exit tile from Kenney atlas
             case Door:
-                return "tiles/door";
+                return "tiles/tileset"; // Door from Kenney atlas
             case Nothing:
             default:
-                return "tiles/empty";
+                return "tiles/tileset"; // Default from Kenney atlas
         }
     }
 

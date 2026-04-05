@@ -103,10 +103,11 @@ public class ItemLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Получает путь спрайта для типа предмета.
+     * Использует спрайты из Kenney Micro Roguelike.
      */
     private String getItemSpriteForType(ItemType type) {
         if (type == null) {
-            return "items/generic";
+            return "items/treasure";
         }
 
         switch (type) {
@@ -117,12 +118,12 @@ public class ItemLayerRenderer extends AbstractLayerRenderer {
             case FOOD:
                 return "items/food";
             case ELIXIR:
-                return "items/elixir";
+                return "items/potion"; // Elixirs rendered as potions
             case SCROLL:
                 return "items/scroll";
             case EMPTY:
             default:
-                return "items/generic";
+                return "items/treasure"; // Default fallback
         }
     }
 

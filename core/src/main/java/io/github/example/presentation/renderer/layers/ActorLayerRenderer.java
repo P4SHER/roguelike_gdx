@@ -89,6 +89,7 @@ public class ActorLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Отрисовывает игрока.
+     * Использует спрайты из Kenney Micro Roguelike.
      */
     private void renderPlayer(SpriteBatch batch, Player player) {
         Coordinates coord = player.getCoordinates();
@@ -99,7 +100,7 @@ public class ActorLayerRenderer extends AbstractLayerRenderer {
         float x = coord.getX() * Constants.TILE_SIZE;
         float y = coord.getY() * Constants.TILE_SIZE;
 
-        String spritePath = "player/idle_down";
+        String spritePath = "characters/player"; // Kenney player sprite
         Sprite sprite = assetManager.getSprite(spritePath);
 
         if (sprite != null) {
@@ -111,6 +112,7 @@ public class ActorLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Отрисовывает врага.
+     * Использует спрайты из Kenney Micro Roguelike.
      */
     private void renderEnemy(SpriteBatch batch, Enemy enemy) {
         Coordinates coord = enemy.getCoordinates();
@@ -133,26 +135,27 @@ public class ActorLayerRenderer extends AbstractLayerRenderer {
 
     /**
      * Получает путь спрайта для типа врага.
+     * Использует спрайты из Kenney Micro Roguelike.
      */
     private String getEnemySpriteForType(Object enemyType) {
         if (enemyType == null) {
-            return "enemies/zombie";
+            return "characters/enemy_zombie";
         }
 
         String typeName = enemyType.toString();
         switch (typeName) {
             case "ZOMBIE":
-                return "enemies/zombie";
+                return "characters/enemy_zombie";
             case "VAMPIRE":
-                return "enemies/vampire";
+                return "characters/enemy_vampire";
             case "GHOST":
-                return "enemies/ghost";
+                return "characters/enemy_ghost";
             case "OGRE":
-                return "enemies/ogre";
+                return "characters/enemy_ogre";
             case "SNAKE_MAGE":
-                return "enemies/snake_mage";
+                return "characters/enemy_snake";
             default:
-                return "enemies/zombie";
+                return "characters/enemy_zombie";
         }
     }
 
