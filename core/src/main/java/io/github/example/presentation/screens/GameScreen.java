@@ -21,6 +21,7 @@ import io.github.example.presentation.events.GameEventListener;
 import io.github.example.presentation.events.GameEventDispatcher;
 import io.github.example.presentation.input.InputQueue;
 import io.github.example.presentation.util.PerformanceMonitor;
+import io.github.example.presentation.profiling.GamePerformanceProfiler;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -55,6 +56,7 @@ public class GameScreen implements Screen {
     // Turn-based gameplay loop
     private final InputQueue actionQueue = new InputQueue();
     private final PerformanceMonitor performanceMonitor = new PerformanceMonitor();
+    private final GamePerformanceProfiler performanceProfiler = new GamePerformanceProfiler();
     
     private static final float FRAME_TIME_TARGET = 1f / 60f; // 60 FPS target
     private float frameAccumulator = 0f;
@@ -313,6 +315,8 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta, SpriteBatch batch) {
         try {
+            performanceProfiler.startFrame();
+            
             // Validate game state before proceeding
             if (!validateGameState()) {
                 if (callback != null) {
@@ -322,12 +326,15 @@ public class GameScreen implements Screen {
             }
             
             performanceMonitor.startInputPhase();
+            performanceProfiler.startInputMeasure();
             
             // 1. INPUT PHASE: Collect keyboard input and queue actions
             processInput();
             
+            performanceProfiler.endInputMeasure();
             performanceMonitor.endInputPhase();
             performanceMonitor.startUpdatePhase();
+            performanceProfiler.startUpdateMeasure();
             
             // 2. UPDATE PHASE: Process one queued action per turn
             frameAccumulator += delta;
@@ -350,16 +357,20 @@ public class GameScreen implements Screen {
                 }
             }
             
+            performanceProfiler.endUpdateMeasure();
             performanceMonitor.endUpdatePhase();
             performanceMonitor.startRenderPhase();
+            performanceProfiler.startRenderMeasure();
             
             // 3. RENDER PHASE: Update camera and render all layers (60 FPS continuous)
             updateCameraPosition(delta);
             renderer.updateCamera();
             renderer.render(delta);
             
+            performanceProfiler.endRenderMeasure();
             performanceMonitor.endRenderPhase();
             performanceMonitor.recordFrameTime();
+            performanceProfiler.endFrame();
             
         } catch (Exception e) {
             Logger.error("Critical error in GameScreen.render(): " + e.getMessage());
@@ -560,11 +571,29 @@ public class GameScreen implements Screen {
         if (eventDispatcher != null) {
             eventDispatcher.clearListeners();
         }
+        
+        // Print performance report on dispose
+        performanceProfiler.printReport();
+        
         renderer.dispose();
     }
 
     @Override
     public String getName() {
         return "GameScreen";
+    }
+    
+    /**
+     * Get performance report for external analysis.
+     */
+    public String getPerformanceReport() {
+        return performanceProfiler.getPerformanceReport();
+    }
+    
+    /**
+     * Check if gameplay meets performance targets.
+     */
+    public boolean meetsPerformanceTargets() {
+        return performanceProfiler.meetsPerformanceTargets();
     }
 }
