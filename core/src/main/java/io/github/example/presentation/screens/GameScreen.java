@@ -20,6 +20,7 @@ import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.events.GameEventListener;
 import io.github.example.presentation.events.GameEventDispatcher;
 import io.github.example.presentation.input.InputQueue;
+import io.github.example.presentation.util.PerformanceMonitor;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,6 +30,11 @@ import java.util.Queue;
  * Основной экран игры.
  * Отрисовывает уровень, персонажа, врагов, предметы и HUD.
  * Обрабатывает ввод игрока и управляет turn-based gameplay loop.
+ * 
+ * Turn cycle structure:
+ * 1. Input Phase: Collect input and queue actions
+ * 2. Update Phase: Process one queued action per turn
+ * 3. Render Phase: Update camera and render all layers at 60 FPS
  */
 public class GameScreen implements Screen {
     private final GameService gameService;
@@ -48,8 +54,11 @@ public class GameScreen implements Screen {
 
     // Turn-based gameplay loop
     private final InputQueue actionQueue = new InputQueue();
-    private boolean turnProcessed = false;
-    private Direction queuedDirection = Direction.NONE;
+    private final PerformanceMonitor performanceMonitor = new PerformanceMonitor();
+    
+    private static final float FRAME_TIME_TARGET = 1f / 60f; // 60 FPS target
+    private float frameAccumulator = 0f;
+    private boolean turnReady = false;
 
     public interface GameCallback {
         void onPause();
@@ -286,51 +295,63 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta, SpriteBatch batch) {
         try {
-            // 1. Check if we should process a turn
-            if (shouldProcessTurn()) {
-                // 2. Get the next action from the queue
-                InputQueue.GameAction nextAction = actionQueue.getNextAction();
-                if (nextAction != null) {
-                    nextAction.execute();
-                    fireGameEventCallbacks();
-                    Logger.debug("Executed action: " + nextAction.getDescription());
+            performanceMonitor.startInputPhase();
+            
+            // 1. INPUT PHASE: Collect keyboard input and queue actions
+            processInput();
+            
+            performanceMonitor.endInputPhase();
+            performanceMonitor.startUpdatePhase();
+            
+            // 2. UPDATE PHASE: Process one queued action per turn
+            frameAccumulator += delta;
+            if (frameAccumulator >= FRAME_TIME_TARGET) {
+                frameAccumulator -= FRAME_TIME_TARGET;
+                
+                // Process next action from queue if available
+                if (actionQueue.hasActions()) {
+                    InputQueue.GameAction nextAction = actionQueue.getNextAction();
+                    if (nextAction != null) {
+                        nextAction.execute();
+                        fireGameEventCallbacks();
+                        Logger.debug("Executed: " + nextAction.getDescription());
+                    }
                 }
-                turnProcessed = false;
             }
             
-            // 3. Check if there are more actions queued
-            if (actionQueue.hasActions()) {
-                turnProcessed = true;
-            }
+            performanceMonitor.endUpdatePhase();
+            performanceMonitor.startRenderPhase();
             
-            // 4. Update camera to follow player
+            // 3. RENDER PHASE: Update camera and render all layers (60 FPS continuous)
             updateCameraPosition(delta);
-            
-            // 5. Update camera and render all layers
             renderer.updateCamera();
             renderer.render(delta);
+            
+            performanceMonitor.endRenderPhase();
+            performanceMonitor.recordFrameTime();
+            
         } catch (Exception e) {
             Logger.error("Error in GameScreen.render(): " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private void handleInputQueue() {
-        if (!actionQueue.hasActions() && !turnProcessed) {
-            turnProcessed = true;
+    /**
+     * INPUT PHASE: Polls keyboard input each frame and queues actions.
+     * This runs every frame, not just on turn boundaries.
+     */
+    private void processInput() {
+        Direction currentDirection = inputHandler.getCurrentDirection();
+        
+        // Only queue movement if not already queued this frame
+        if (currentDirection != Direction.NONE) {
+            if (actionQueue.peekNextAction() == null || 
+                !(actionQueue.peekNextAction() instanceof InputQueue.MoveAction)) {
+                actionQueue.enqueueMove(currentDirection, () -> {
+                    gameService.processPlayerAction(currentDirection);
+                });
+            }
         }
-    }
-
-    private boolean shouldProcessTurn() {
-        return turnProcessed || actionQueue.hasActions();
-    }
-
-    private Direction getNextDirection() {
-        Direction currentDir = inputHandler.getCurrentDirection();
-        if (currentDir != Direction.NONE && actionQueue.hasActions()) {
-            actionQueue.getNextAction();
-        }
-        return currentDir;
     }
 
     private void updateCameraPosition(float delta) {
