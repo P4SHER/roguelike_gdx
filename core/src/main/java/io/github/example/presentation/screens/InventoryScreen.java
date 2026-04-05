@@ -8,6 +8,7 @@ import io.github.example.domain.entities.Backpack;
 import io.github.example.domain.entities.Item;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.Logger;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,8 +19,9 @@ import java.util.List;
 public class InventoryScreen implements Screen {
     private final Player player;
     private final InventoryCallback callback;
+    private Backpack backpack;
     private Item selectedItem;
-    private List<Item> itemList;
+    private List<Item> displayItems;
     private static Texture filledTexture;
     private static final Object textureLock = new Object();
 
@@ -32,19 +34,20 @@ public class InventoryScreen implements Screen {
     public InventoryScreen(Player player, InventoryCallback callback) {
         this.player = player;
         this.callback = callback;
-        this.itemList = player != null && player.getBackpack() != null ? 
-            player.getBackpack().getAllItems() : 
-            new java.util.ArrayList<>();
+        if (player != null && player.getBackpack() != null) {
+            this.backpack = player.getBackpack();
+            this.displayItems = new ArrayList<>(backpack.getAllItems());
+        } else {
+            this.displayItems = new ArrayList<>();
+        }
     }
 
     @Override
     public void show() {
         Logger.info("InventoryScreen показан");
-        if (player != null && player.getBackpack() != null) {
-            itemList = player.getBackpack().getAllItems();
-            if (!itemList.isEmpty()) {
-                selectedItem = itemList.get(0);
-            }
+        updateFromBackpack(player != null ? player.getBackpack() : null);
+        if (!displayItems.isEmpty()) {
+            selectedItem = displayItems.get(0);
         }
     }
 
@@ -64,7 +67,21 @@ public class InventoryScreen implements Screen {
         // Buttons: Use/Equip/Drop, Close
         renderButtons(batch);
 
-        Logger.debug("Inventory rendered with " + itemList.size() + " items");
+        Logger.debug("Inventory rendered with " + displayItems.size() + " items");
+    }
+
+    /**
+     * Updates the display items from the backpack.
+     * Called when the backpack contents change.
+     */
+    public void updateFromBackpack(Backpack backpack) {
+        if (backpack != null) {
+            this.backpack = backpack;
+            this.displayItems = new ArrayList<>(backpack.getAllItems());
+        } else {
+            this.displayItems = new ArrayList<>();
+            this.backpack = null;
+        }
     }
 
     /**
@@ -86,7 +103,7 @@ public class InventoryScreen implements Screen {
         float itemHeight = 30;
         float itemSpacing = 5;
 
-        for (Item item : itemList) {
+        for (Item item : displayItems) {
             if (itemY < panelY) {
                 break; // Stop if we've scrolled past the panel
             }
@@ -174,38 +191,82 @@ public class InventoryScreen implements Screen {
     }
 
     /**
-     * Handles item selection (simulated).
+     * Handles item selection by index.
+     */
+    public void onItemSelected(int index) {
+        if (index >= 0 && index < displayItems.size()) {
+            selectedItem = displayItems.get(index);
+            Logger.info("Selected item at index " + index + ": " + selectedItem.getName());
+        }
+    }
+
+    /**
+     * Selects an item by reference.
      */
     public void selectItem(Item item) {
-        if (itemList.contains(item)) {
+        if (displayItems.contains(item)) {
             selectedItem = item;
             Logger.info("Selected: " + item.getName());
         }
     }
 
     /**
-     * Uses or equips the selected item.
+     * Uses the selected item.
      */
     public void useSelectedItem() {
-        if (selectedItem != null && callback != null) {
+        if (selectedItem != null && backpack != null && callback != null) {
+            backpack.removeItem(selectedItem);
+            updateFromBackpack(backpack);
             callback.onItemUse(selectedItem);
             Logger.info("Used: " + selectedItem.getName());
+            if (!displayItems.isEmpty() && !displayItems.contains(selectedItem)) {
+                selectedItem = displayItems.get(0);
+            }
         }
+    }
+
+    /**
+     * Callback for use item action.
+     */
+    public void onUseItem() {
+        useSelectedItem();
     }
 
     /**
      * Drops the selected item.
      */
     public void dropSelectedItem() {
-        if (selectedItem != null && callback != null) {
+        if (selectedItem != null && backpack != null && callback != null) {
+            backpack.removeItem(selectedItem);
+            updateFromBackpack(backpack);
             callback.onItemDrop(selectedItem);
-            itemList.remove(selectedItem);
-            if (!itemList.isEmpty()) {
-                selectedItem = itemList.get(0);
+            Logger.info("Dropped item");
+            if (!displayItems.isEmpty()) {
+                selectedItem = displayItems.get(0);
             } else {
                 selectedItem = null;
             }
-            Logger.info("Dropped item");
+        }
+    }
+
+    /**
+     * Callback for drop item action.
+     */
+    public void onDropItem() {
+        dropSelectedItem();
+    }
+
+    /**
+     * Adds an item from the ground to the backpack.
+     */
+    public void addItemFromGround(Item item) {
+        if (backpack != null && item != null) {
+            if (backpack.addItem(item)) {
+                updateFromBackpack(backpack);
+                Logger.info("Added item to inventory: " + item.getName());
+            } else {
+                Logger.warn("Failed to add item: backpack is full");
+            }
         }
     }
 
