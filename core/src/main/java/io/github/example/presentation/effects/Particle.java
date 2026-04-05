@@ -7,6 +7,9 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
  * Used in ParticlePool for object reuse.
  */
 public class Particle {
+    // Alpha fading configuration
+    private static final float ALPHA_FADE_START_PERCENT = 0.7f; // Full opacity until 70% of lifetime
+
     public float x, y;              // Position
     public float vx, vy;            // Velocity
     public float lifetime;          // Current time to live
@@ -34,6 +37,7 @@ public class Particle {
 
     /**
      * Update particle: position, lifetime, alpha fade.
+     * Alpha remains full for first 70% of lifetime, then fades smoothly over last 30%.
      */
     public void update(float delta) {
         if (!active) return;
@@ -49,8 +53,17 @@ public class Particle {
             return;
         }
 
-        // Fade out as particle approaches end of life
-        alpha = lifetime / duration;
+        // Calculate progress from 0 (start) to 1 (end)
+        float progress = 1.0f - (lifetime / duration);
+        
+        // Full opacity until 70% through lifetime, then fade over last 30%
+        if (progress < ALPHA_FADE_START_PERCENT) {
+            alpha = 1.0f;
+        } else {
+            // Fade from 1.0 to 0.0 over the last 30% of lifetime
+            float fadeProgress = (progress - ALPHA_FADE_START_PERCENT) / (1.0f - ALPHA_FADE_START_PERCENT);
+            alpha = 1.0f - fadeProgress;
+        }
     }
 
     /**

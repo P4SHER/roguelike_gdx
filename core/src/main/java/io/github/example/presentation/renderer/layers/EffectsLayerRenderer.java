@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Rectangle;
 import io.github.example.presentation.effects.ParticlePool;
 import io.github.example.presentation.effects.EffectType;
+import io.github.example.presentation.effects.EffectFactory;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.Logger;
 
@@ -119,6 +120,7 @@ public class EffectsLayerRenderer extends AbstractLayerRenderer {
     @Override
     public void dispose() {
         particlePool.clear();
+        EffectFactory.dispose();
         super.dispose();
     }
 

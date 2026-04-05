@@ -1,13 +1,19 @@
 package io.github.example.presentation.screens;
 
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Pixmap;
 import io.github.example.domain.entities.Player;
 import io.github.example.domain.entities.Backpack;
 import io.github.example.domain.entities.Item;
+import io.github.example.domain.entities.ItemType;
+import io.github.example.domain.entities.EntityConfig;
+import io.github.example.domain.service.GameService;
+import io.github.example.domain.service.GameSession;
 import io.github.example.presentation.util.Constants;
 import io.github.example.presentation.util.Logger;
+import io.github.example.presentation.input.InputHandler;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,25 +21,36 @@ import java.util.List;
  * Inventory screen for viewing and managing player items.
  * Layout: Left panel for item list, Right panel for item details.
  * Overlays on GameScreen.
+ * Fully integrated with GameService for item operations.
  */
 public class InventoryScreen implements Screen {
     private final Player player;
+    private final GameService gameService;
     private final InventoryCallback callback;
+    private final InputHandler inputHandler;
     private Backpack backpack;
     private Item selectedItem;
     private List<Item> displayItems;
+    private int selectedIndex;
+    private String lastMessage;
+    private float messageDisplayTime;
+    private static final float MESSAGE_DISPLAY_DURATION = 2.0f;
     private static Texture filledTexture;
     private static final Object textureLock = new Object();
 
     public interface InventoryCallback {
         void onClose();
-        void onItemUse(Item item);
-        void onItemDrop(Item item);
     }
 
-    public InventoryScreen(Player player, InventoryCallback callback) {
+    public InventoryScreen(Player player, GameService gameService, InventoryCallback callback, InputHandler inputHandler) {
         this.player = player;
+        this.gameService = gameService;
         this.callback = callback;
+        this.inputHandler = inputHandler;
+        this.selectedIndex = 0;
+        this.lastMessage = "";
+        this.messageDisplayTime = 0;
+        
         if (player != null && player.getBackpack() != null) {
             this.backpack = player.getBackpack();
             this.displayItems = new ArrayList<>(backpack.getAllItems());
@@ -44,21 +61,31 @@ public class InventoryScreen implements Screen {
 
     @Override
     public void show() {
-        Logger.info("InventoryScreen показан");
+        Logger.info("InventoryScreen opened");
         updateFromBackpack(player != null ? player.getBackpack() : null);
         if (!displayItems.isEmpty()) {
             selectedItem = displayItems.get(0);
+            selectedIndex = 0;
+        } else {
+            selectedItem = null;
+            selectedIndex = -1;
         }
+        clearMessage();
     }
 
     @Override
     public void render(float delta, SpriteBatch batch) {
+        // Update message display time
+        if (messageDisplayTime > 0) {
+            messageDisplayTime -= delta;
+        }
+
         // Draw semi-transparent overlay
         batch.setColor(0, 0, 0, 0.5f);
         batch.draw(getFilledTexture(), 0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT);
         batch.setColor(1, 1, 1, 1);
 
-        // Left panel: Item list (vertical scroll)
+        // Left panel: Item list with slots info
         renderItemList(batch);
 
         // Right panel: Item details
@@ -67,25 +94,40 @@ public class InventoryScreen implements Screen {
         // Buttons: Use/Equip/Drop, Close
         renderButtons(batch);
 
-        Logger.debug("Inventory rendered with " + displayItems.size() + " items");
+        // Display messages
+        renderMessages(batch);
+
+        Logger.debug("Inventory rendered: " + displayItems.size() + " items, selected: " + 
+            (selectedItem != null ? selectedItem.getName() : "none"));
     }
 
     /**
      * Updates the display items from the backpack.
-     * Called when the backpack contents change.
+     * Called whenever inventory contents change.
      */
     public void updateFromBackpack(Backpack backpack) {
         if (backpack != null) {
             this.backpack = backpack;
             this.displayItems = new ArrayList<>(backpack.getAllItems());
+            // Validate selected index
+            if (selectedIndex >= displayItems.size()) {
+                selectedIndex = Math.max(0, displayItems.size() - 1);
+            }
+            if (selectedIndex >= 0 && selectedIndex < displayItems.size()) {
+                selectedItem = displayItems.get(selectedIndex);
+            } else {
+                selectedItem = null;
+            }
         } else {
             this.displayItems = new ArrayList<>();
             this.backpack = null;
+            this.selectedItem = null;
+            this.selectedIndex = -1;
         }
     }
 
     /**
-     * Renders the left panel with item list.
+     * Renders the left panel with item list and inventory slots info.
      */
     private void renderItemList(SpriteBatch batch) {
         float panelX = Constants.UI_PADDING;
@@ -98,28 +140,33 @@ public class InventoryScreen implements Screen {
         batch.draw(getFilledTexture(), panelX, panelY, panelWidth, panelHeight);
         batch.setColor(1, 1, 1, 1);
 
+        // Draw inventory slots info at the top
+        float headerY = panelY + panelHeight - Constants.UI_PADDING;
+        if (backpack != null) {
+            int current = backpack.getCurrentItems();
+            int maxSlots = EntityConfig.MAX_ITEMS_IN_BACKPACK;
+            Logger.debug("Inventory: " + current + "/" + maxSlots);
+        }
+
         // Draw item list
-        float itemY = panelY + panelHeight - Constants.UI_PADDING;
+        float itemY = headerY - 40;
         float itemHeight = 30;
         float itemSpacing = 5;
 
-        for (Item item : displayItems) {
+        for (int i = 0; i < displayItems.size(); i++) {
+            Item item = displayItems.get(i);
             if (itemY < panelY) {
                 break; // Stop if we've scrolled past the panel
             }
 
             // Highlight selected item
-            if (item == selectedItem) {
-                batch.setColor(0.3f, 0.3f, 0.5f, 0.8f);
+            if (i == selectedIndex) {
+                batch.setColor(0.3f, 0.3f, 0.5f, 0.9f);
             } else {
                 batch.setColor(0.2f, 0.2f, 0.2f, 0.8f);
             }
-            batch.draw(getFilledTexture(), panelX + Constants.UI_MARGIN, itemY - itemHeight, 
+            batch.draw(getFilledTexture(), panelX + Constants.UI_MARGIN, itemY - itemHeight,
                 panelWidth - Constants.UI_MARGIN * 2, itemHeight);
-
-            // Reset color for text
-            batch.setColor(0.9f, 0.9f, 0.9f, 1f);
-            Logger.debug("Item: " + item.getName() + " x" + item.getCountFoodInBackpack());
 
             itemY -= (itemHeight + itemSpacing);
         }
@@ -157,16 +204,26 @@ public class InventoryScreen implements Screen {
         Logger.debug("Type: " + selectedItem.getType());
         textY -= lineHeight;
 
-        Logger.debug("Count: " + selectedItem.getCountFoodInBackpack());
-        textY -= lineHeight;
+        if (selectedItem.getCountFoodInBackpack() > 0) {
+            Logger.debug("Quantity: " + selectedItem.getCountFoodInBackpack());
+            textY -= lineHeight;
+        }
 
-        Logger.debug("Strength Bonus: " + selectedItem.getStrengthBonus());
+        if (selectedItem.getStrengthBonus() > 0) {
+            Logger.debug("Strength Bonus: " + selectedItem.getStrengthBonus());
+            textY -= lineHeight;
+        }
+
+        if (selectedItem.getHealthRestoreFood() > 0) {
+            Logger.debug("Health Restore: " + selectedItem.getHealthRestoreFood());
+            textY -= lineHeight;
+        }
 
         batch.setColor(1, 1, 1, 1);
     }
 
     /**
-     * Renders action buttons.
+     * Renders action buttons and keyboard hints.
      */
     private void renderButtons(SpriteBatch batch) {
         float buttonWidth = 120;
@@ -191,69 +248,159 @@ public class InventoryScreen implements Screen {
     }
 
     /**
-     * Handles item selection by index.
+     * Renders status messages with fade-out.
      */
-    public void onItemSelected(int index) {
-        if (index >= 0 && index < displayItems.size()) {
-            selectedItem = displayItems.get(index);
-            Logger.info("Selected item at index " + index + ": " + selectedItem.getName());
+    private void renderMessages(SpriteBatch batch) {
+        if (messageDisplayTime > 0 && !lastMessage.isEmpty()) {
+            float alpha = messageDisplayTime / MESSAGE_DISPLAY_DURATION;
+            batch.setColor(1, 1, 1, alpha);
+            Logger.debug(lastMessage);
+            batch.setColor(1, 1, 1, 1);
         }
     }
 
     /**
-     * Selects an item by reference.
+     * Displays a message to the user.
      */
-    public void selectItem(Item item) {
-        if (displayItems.contains(item)) {
-            selectedItem = item;
-            Logger.info("Selected: " + item.getName());
+    private void showMessage(String message) {
+        lastMessage = message;
+        messageDisplayTime = MESSAGE_DISPLAY_DURATION;
+        Logger.info(message);
+    }
+
+    /**
+     * Clears the current message.
+     */
+    private void clearMessage() {
+        lastMessage = "";
+        messageDisplayTime = 0;
+    }
+
+    /**
+     * Navigates up in the inventory list.
+     */
+    public void navigateUp() {
+        if (selectedIndex > 0) {
+            selectedIndex--;
+            selectedItem = displayItems.get(selectedIndex);
+            Logger.info("Selected: " + selectedItem.getName());
         }
     }
 
     /**
-     * Uses the selected item.
+     * Navigates down in the inventory list.
+     */
+    public void navigateDown() {
+        if (selectedIndex < displayItems.size() - 1) {
+            selectedIndex++;
+            selectedItem = displayItems.get(selectedIndex);
+            Logger.info("Selected: " + selectedItem.getName());
+        }
+    }
+
+    /**
+     * Uses the selected item through GameService.
      */
     public void useSelectedItem() {
-        if (selectedItem != null && backpack != null && callback != null) {
-            backpack.removeItem(selectedItem);
-            updateFromBackpack(backpack);
-            callback.onItemUse(selectedItem);
-            Logger.info("Used: " + selectedItem.getName());
-            if (!displayItems.isEmpty() && !displayItems.contains(selectedItem)) {
-                selectedItem = displayItems.get(0);
-            }
+        if (selectedItem == null || gameService == null || selectedIndex < 0) {
+            showMessage("Cannot use item");
+            return;
         }
-    }
 
-    /**
-     * Callback for use item action.
-     */
-    public void onUseItem() {
-        useSelectedItem();
+        try {
+            boolean success = gameService.useItemFromBackpack(selectedIndex, false);
+            if (success) {
+                String itemName = selectedItem.getName();
+                showMessage("Used: " + itemName);
+                updateFromBackpack(player.getBackpack());
+            } else {
+                showMessage("Failed to use item");
+            }
+        } catch (Exception e) {
+            Logger.error("Error using item: " + e.getMessage());
+            showMessage("Error using item");
+        }
     }
 
     /**
      * Drops the selected item.
      */
     public void dropSelectedItem() {
-        if (selectedItem != null && backpack != null && callback != null) {
-            backpack.removeItem(selectedItem);
+        if (selectedItem == null || backpack == null || selectedIndex < 0) {
+            showMessage("Cannot drop item");
+            return;
+        }
+
+        try {
+            Item itemToDrop = selectedItem;
+            backpack.removeItem(itemToDrop);
             updateFromBackpack(backpack);
-            callback.onItemDrop(selectedItem);
-            Logger.info("Dropped item");
-            if (!displayItems.isEmpty()) {
-                selectedItem = displayItems.get(0);
-            } else {
-                selectedItem = null;
-            }
+            showMessage("Dropped: " + itemToDrop.getName());
+        } catch (Exception e) {
+            Logger.error("Error dropping item: " + e.getMessage());
+            showMessage("Error dropping item");
         }
     }
 
     /**
-     * Callback for drop item action.
+     * Equips/unequips the selected item (for weapons).
      */
-    public void onDropItem() {
-        dropSelectedItem();
+    public void toggleEquip() {
+        if (selectedItem == null) {
+            showMessage("Cannot equip: no item selected");
+            return;
+        }
+
+        if (selectedItem.getType() != ItemType.WEAPON) {
+            showMessage("Can only equip weapons");
+            return;
+        }
+
+        try {
+            boolean success = gameService.useItemFromBackpack(selectedIndex, true);
+            if (success) {
+                showMessage("Equipped: " + selectedItem.getName());
+                updateFromBackpack(player.getBackpack());
+            } else {
+                showMessage("Failed to equip item");
+            }
+        } catch (Exception e) {
+            Logger.error("Error equipping item: " + e.getMessage());
+            showMessage("Error equipping item");
+        }
+    }
+
+    /**
+     * Handles input navigation for arrow keys and action keys.
+     */
+    public void handleInput() {
+        if (inputHandler == null) {
+            return;
+        }
+
+        // Arrow key navigation
+        if (inputHandler.isKeyPressed(Input.Keys.UP)) {
+            navigateUp();
+            inputHandler.clearInput();
+        }
+        if (inputHandler.isKeyPressed(Input.Keys.DOWN)) {
+            navigateDown();
+            inputHandler.clearInput();
+        }
+
+        // Action keys
+        if (inputHandler.isKeyPressed(Input.Keys.ENTER) || inputHandler.isKeyPressed(Input.Keys.SPACE)) {
+            useSelectedItem();
+            inputHandler.clearInput();
+        }
+        if (inputHandler.isKeyPressed(Input.Keys.D) || inputHandler.isKeyPressed(Input.Keys.DEL)) {
+            dropSelectedItem();
+            inputHandler.clearInput();
+        }
+        if (inputHandler.isKeyPressed(Input.Keys.E)) {
+            toggleEquip();
+            inputHandler.clearInput();
+        }
     }
 
     /**
@@ -263,9 +410,9 @@ public class InventoryScreen implements Screen {
         if (backpack != null && item != null) {
             if (backpack.addItem(item)) {
                 updateFromBackpack(backpack);
-                Logger.info("Added item to inventory: " + item.getName());
+                showMessage("Added: " + item.getName());
             } else {
-                Logger.warn("Failed to add item: backpack is full");
+                Logger.warn("Inventory full!");
             }
         }
     }
