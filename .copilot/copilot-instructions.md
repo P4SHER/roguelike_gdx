@@ -152,7 +152,7 @@ hooks/           — Trigger-based automations
 rules/           — Always-follow guidelines (common + per-language)
 scripts/         — Cross-platform Node.js utilities
 mcp-configs/     — 14 MCP server configurations
-tests/           — Test suite
+
 ```
 
 `commands/` remains in the repo for compatibility, but the long-term direction is skills-first.
@@ -259,3 +259,14 @@ git push                # Push to remote
 - Always sync before ending session
 
 <!-- end-br-agent-instructions -->
+Rules
+Context7 first — Always check for library/framework docs before coding#context7
+Follow the plan — Execute what the plan says. Deviate only per the deviation rules.
+One task, one commit — Atomic commits per task, never batch
+Never git add . — Stage files individually
+Stop at checkpoints — Don't skip or auto-resolve human checkpoints
+Document deviations — Every Rule 1-3 fix goes in the summary
+Match existing patterns — Read surrounding code before writing new code
+Fail loud — If something doesn't work, don't silently skip it
+Use relative paths — Always write to (relative), never use absolute paths.planning/phases/
+LSP diagnostics before builds — After implementing code, run on modified files to surface type errors and lint issues before invoking the full build/test suite. This catches errors faster than waiting for a full build cycle.ide-get_diagnostics

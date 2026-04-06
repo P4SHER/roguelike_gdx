@@ -148,8 +148,6 @@ public class UILayerRenderer extends AbstractLayerRenderer {
         int screenHeight = Constants.SCREEN_HEIGHT;
         int padding = Constants.UI_PADDING;
 
-        batch.begin();
-
         // Render HUD elements with proper layout
         // Top-left: Player stats block (HP, Level, XP, Gold)
         renderPlayerStats(batch, padding, screenHeight - padding);
@@ -164,8 +162,6 @@ public class UILayerRenderer extends AbstractLayerRenderer {
         // Bottom-left: Action log with time-based fading
         updateMessageQueue(delta);
         renderActionLog(batch, padding, padding + 140);
-
-        batch.end();
     }
 
     /**

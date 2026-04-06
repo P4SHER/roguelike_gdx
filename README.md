@@ -2,9 +2,13 @@
 
 A turn-based dungeon roguelike game built with **LibGDX** and **Java 17**.
 
-## 🎮 STATUS: PLAYABLE GAME (Phase 6 Complete)
+## 🎮 STATUS: PLAYABLE GAME (Phase 6 Complete + Recent Fixes)
 
 The game is **fully playable** with complete input handling, rendering, and turn-based gameplay.
+
+### Latest Fixes (Phase 6 Extension)
+- ✅ **Input Handling Fixed** - One movement per key press (not continuous)
+- ✅ **Camera Zoomed** - Soul Knight-like close-up view (~20 tiles visible instead of 60)
 
 ### Quick Start
 ```bash
@@ -37,6 +41,13 @@ The game is **fully playable** with complete input handling, rendering, and turn
 | **10** | ⏳ PENDING | - | Release |
 
 **Overall Progress: 60% (Phases 1-6 Complete)**
+
+---
+
+## 📖 Full Development History
+
+For complete history of all phases, design decisions, and technical details:
+👉 **See [PHASES_COMPLETE.md](./PHASES_COMPLETE.md)** - Full phase documentation with all 10 phases
 
 ---
 

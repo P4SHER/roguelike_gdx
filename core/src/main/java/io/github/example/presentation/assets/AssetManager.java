@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
 import io.github.example.presentation.util.Logger;
 import java.util.HashMap;
@@ -16,9 +17,11 @@ import java.util.Map;
 public class AssetManager implements Disposable {
     private final Map<String, Sprite> spriteCache = new HashMap<>();
     private final Map<String, Texture> textureCache = new HashMap<>();
+    private final Map<String, TextureRegion> regionCache = new HashMap<>();
 
     private static final String BASE_PATH = "sprites/";
     private Sprite missingSprite;
+    private Texture tilesetAtlas;
 
     public AssetManager() {
         // Создаем fallback спрайт для ошибок
@@ -139,11 +142,72 @@ public class AssetManager implements Disposable {
     }
 
     /**
+     * Получает TextureRegion для конкретного тайла из атласа.
+     * Атлас это 16x10 сетка 32x32 тайлов.
+     * 
+     * @param tileX X индекс в атласе (0-15)
+     * @param tileY Y индекс в атласе (0-9)
+     * @return TextureRegion для тайла
+     */
+    public TextureRegion getTileRegion(int tileX, int tileY) {
+        String key = "tile_" + tileX + "_" + tileY;
+        if (regionCache.containsKey(key)) {
+            return regionCache.get(key);
+        }
+
+        // Загружаем атлас если еще не загружен
+        if (tilesetAtlas == null) {
+            try {
+                String fullPath = BASE_PATH + "tiles/tileset.png";
+                if (Gdx.files.internal(fullPath).exists()) {
+                    tilesetAtlas = new Texture(Gdx.files.internal(fullPath));
+                    textureCache.put(fullPath, tilesetAtlas);
+                    Logger.debug("Loaded tileset atlas: " + fullPath);
+                } else {
+                    Logger.warn("Tileset atlas not found: " + fullPath);
+                    return null;
+                }
+            } catch (Exception e) {
+                Logger.error("Error loading tileset atlas: " + e.getMessage());
+                return null;
+            }
+        }
+
+        // Проверяем границы
+        if (tileX < 0 || tileY < 0 || tileX >= 16 || tileY >= 10) {
+            Logger.warn("Invalid tile coordinates: " + tileX + ", " + tileY);
+            return null;
+        }
+
+        // Создаем TextureRegion для конкретного тайла
+        int pixelX = tileX * 32;
+        int pixelY = tileY * 32;
+        TextureRegion region = new TextureRegion(tilesetAtlas, pixelX, pixelY, 32, 32);
+        regionCache.put(key, region);
+
+        return region;
+    }
+
+    /**
+     * Получает простой TextureRegion для пола (наиболее распространенный).
+     */
+    public TextureRegion getFloorTile() {
+        return getTileRegion(0, 0); // Первый тайл в атласе (обычно пол)
+    }
+
+    /**
+     * Получает TextureRegion для стены.
+     */
+    public TextureRegion getWallTile() {
+        return getTileRegion(1, 0); // Второй тайл
+    }
+
+    /**
      * Получает информацию о кэше для отладки.
      */
     public String getCacheInfo() {
-        return String.format("Спрайты в кэше: %d, Текстуры: %d", 
-            spriteCache.size(), textureCache.size());
+        return String.format("Спрайты в кэше: %d, Текстуры: %d, Regions: %d", 
+            spriteCache.size(), textureCache.size(), regionCache.size());
     }
 
     @Override
@@ -155,6 +219,7 @@ public class AssetManager implements Disposable {
         }
         spriteCache.clear();
         textureCache.clear();
+        regionCache.clear();
 
         if (missingSprite != null && missingSprite.getTexture() != null) {
             missingSprite.getTexture().dispose();

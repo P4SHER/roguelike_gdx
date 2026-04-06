@@ -6,21 +6,17 @@ import io.github.example.domain.entities.Player;
 import io.github.example.domain.level.Coordinates;
 import io.github.example.domain.level.Level;
 import io.github.example.domain.unittest.Logger;
-
-/**
- * Перемещение, коллизии
- */
 public class MovementService {
-
     /**
      * Обрабатывает перемещение игрока в рамках игровой сессии.
-     * @param session Для получения данных об игре
-     * @param direction Направление движения
+     *
+     * @param session       Для получения данных об игре
+     * @param direction     Направление движения
      * @param combatService Для атаки
      * @return true, если перемещение успешно, false если заблокировано
      */
     public MoveResult movePlayer(GameSession session, Direction direction, CombatService combatService) {
-        if (session.getState() != GameState.PLAYING){
+        if (session.getState() != GameState.PLAYING) {
             return MoveResult.GAME_STATUS_NOT_PLAYING;
         }
 
@@ -69,13 +65,14 @@ public class MovementService {
 
     /**
      * Метод для перемещения Enemy
-     * @param session Для получения данных об игре
-     * @param enemy - Враг, который будет ходить и атаковать
+     *
+     * @param session   Для получения данных об игре
+     * @param enemy     - Враг, который будет ходить и атаковать
      * @param targetPos - координаты на которые хотим перейти
      * @return boolean. False - не сделали ход. True - ход был сделан.
      */
     public MoveResult moveEnemy(GameSession session, Enemy enemy, Coordinates targetPos, CombatService combatService) {
-        if (session.getState() != GameState.PLAYING){
+        if (session.getState() != GameState.PLAYING) {
             return MoveResult.GAME_STATUS_NOT_PLAYING;
         }
 
@@ -94,9 +91,10 @@ public class MovementService {
 
         }
 
-        level.setPositionEnemy(enemy,enemy.getCoordinates(), targetPos);
+        level.setPositionEnemy(enemy, enemy.getCoordinates(), targetPos);
 
         return MoveResult.SUCCESS;
     }
+
 
 }

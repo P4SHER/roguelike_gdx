@@ -31,7 +31,7 @@ import java.util.Queue;
  * Основной экран игры.
  * Отрисовывает уровень, персонажа, врагов, предметы и HUD.
  * Обрабатывает ввод игрока и управляет turn-based gameplay loop.
- * 
+ *
  * Turn cycle structure:
  * 1. Input Phase: Collect input and queue actions
  * 2. Update Phase: Process one queued action per turn
@@ -57,7 +57,7 @@ public class GameScreen implements Screen {
     private final InputQueue actionQueue = new InputQueue();
     private final PerformanceMonitor performanceMonitor = new PerformanceMonitor();
     private final GamePerformanceProfiler performanceProfiler = new GamePerformanceProfiler();
-    
+
     private static final float FRAME_TIME_TARGET = 1f / 60f; // 60 FPS target
     private float frameAccumulator = 0f;
     private boolean turnReady = false;
@@ -161,14 +161,14 @@ public class GameScreen implements Screen {
                 Logger.warn("Cannot use item: GameService or session is null");
                 return;
             }
-            
+
             // Validate slot index
             if (slotIndex < 0 || slotIndex >= 9) {
                 Logger.warn("Invalid item slot: " + slotIndex);
                 addActionLog("Invalid slot!");
                 return;
             }
-            
+
             actionQueue.enqueueItemUse(slotIndex, () -> {
                 try {
                     boolean success = gameService.useItemFromBackpack(slotIndex, false);
@@ -275,15 +275,15 @@ public class GameScreen implements Screen {
         renderer.addLayer(new ActorLayerRenderer(player, enemies, assetManager));
         renderer.addLayer(new ItemLayerRenderer(level, assetManager));
         renderer.addLayer(new FogLayerRenderer(level, player));
-        
+
         effectsLayerRenderer = new EffectsLayerRenderer();
         renderer.addLayer(effectsLayerRenderer);
-        
+
         particlePool = new ParticlePool(256);
-        
+
         uiLayerRenderer = new UILayerRenderer(player, actionLog);
         renderer.addLayer(uiLayerRenderer);
-        
+
         if (effectCallback == null) {
             effectCallback = new EffectCallback() {
                 @Override
@@ -316,7 +316,7 @@ public class GameScreen implements Screen {
     public void render(float delta, SpriteBatch batch) {
         try {
             performanceProfiler.startFrame();
-            
+
             // Validate game state before proceeding
             if (!validateGameState()) {
                 if (callback != null) {
@@ -324,23 +324,23 @@ public class GameScreen implements Screen {
                 }
                 return;
             }
-            
+
             performanceMonitor.startInputPhase();
             performanceProfiler.startInputMeasure();
-            
+
             // 1. INPUT PHASE: Collect keyboard input and queue actions
             processInput();
-            
+
             performanceProfiler.endInputMeasure();
             performanceMonitor.endInputPhase();
             performanceMonitor.startUpdatePhase();
             performanceProfiler.startUpdateMeasure();
-            
+
             // 2. UPDATE PHASE: Process one queued action per turn
             frameAccumulator += delta;
             if (frameAccumulator >= FRAME_TIME_TARGET) {
                 frameAccumulator -= FRAME_TIME_TARGET;
-                
+
                 // Process next action from queue if available
                 if (actionQueue.hasActions()) {
                     InputQueue.GameAction nextAction = actionQueue.getNextAction();
@@ -356,22 +356,22 @@ public class GameScreen implements Screen {
                     }
                 }
             }
-            
+
             performanceProfiler.endUpdateMeasure();
             performanceMonitor.endUpdatePhase();
             performanceMonitor.startRenderPhase();
             performanceProfiler.startRenderMeasure();
-            
+
             // 3. RENDER PHASE: Update camera and render all layers (60 FPS continuous)
             updateCameraPosition(delta);
             renderer.updateCamera();
             renderer.render(delta);
-            
+
             performanceProfiler.endRenderMeasure();
             performanceMonitor.endRenderPhase();
             performanceMonitor.recordFrameTime();
             performanceProfiler.endFrame();
-            
+
         } catch (Exception e) {
             Logger.error("Critical error in GameScreen.render(): " + e.getMessage());
             e.printStackTrace();
@@ -386,26 +386,27 @@ public class GameScreen implements Screen {
             Logger.error("GameService or GameSession is null");
             return false;
         }
-        
+
         GameSession session = gameService.getSession();
         if (session.getPlayer() == null) {
             Logger.error("Player is null");
             return false;
         }
-        
+
         // Check if player is alive
         if (!session.getPlayer().isAlive()) {
             Logger.info("Player died - game over");
             return false;
         }
-        
+
         return true;
     }
 
     /**
      * INPUT PHASE: Polls keyboard input each frame and queues actions.
      * This runs every frame, not just on turn boundaries.
-     * Includes validation and error handling for all input types.
+     * Uses getDirectionOnKeyDown() to only trigger movement on KEY_DOWN events,
+     * preventing automatic repeats when holding a key.
      */
     private void processInput() {
         try {
@@ -413,21 +414,19 @@ public class GameScreen implements Screen {
                 Logger.warn("InputHandler is null");
                 return;
             }
-            
-            Direction currentDirection = inputHandler.getCurrentDirection();
-            
-            // Only queue movement if not already queued this frame
-            if (currentDirection != Direction.NONE) {
-                if (actionQueue.peekNextAction() == null || 
-                    !(actionQueue.peekNextAction() instanceof InputQueue.MoveAction)) {
-                    actionQueue.enqueueMove(currentDirection, () -> {
-                        try {
-                            gameService.processPlayerAction(currentDirection);
-                        } catch (Exception e) {
-                            Logger.error("Movement failed: " + e.getMessage());
-                        }
-                    });
-                }
+
+            // Use getDirectionOnKeyDown() instead of getCurrentDirection()
+            // This only returns a direction when the key is FIRST pressed, not when holding
+            Direction directionOnKeyDown = inputHandler.getDirectionOnKeyDown();
+
+            if (directionOnKeyDown != Direction.NONE) {
+                actionQueue.enqueueMove(directionOnKeyDown, () -> {
+                    try {
+                        gameService.processPlayerAction(directionOnKeyDown);
+                    } catch (Exception e) {
+                        Logger.error("Movement failed: " + e.getMessage());
+                    }
+                });
             }
         } catch (Exception e) {
             Logger.error("Error in processInput: " + e.getMessage());
@@ -439,7 +438,7 @@ public class GameScreen implements Screen {
         if (gameService != null && gameService.getSession() != null) {
             player = gameService.getSession().getPlayer();
         }
-        
+
         if (player != null) {
             renderer.followPlayer(player);
         }
@@ -454,22 +453,22 @@ public class GameScreen implements Screen {
         if (session != null) {
             Player player = session.getPlayer();
             Level level = session.getCurrentLevel();
-            
+
             if (player != null && level != null) {
                 checkAndPickupItems(player, level);
-                
+
                 // Dispatch combat and status events
                 if (player.isAlive()) {
                     float playerX = player.getCoordinates().getX();
                     float playerY = player.getCoordinates().getY();
-                    
+
                     // Check player health changes (from combat)
                     for (Enemy enemy : level.getAllEnemies()) {
                         if (enemy.isAlive()) {
                             Coordinates enemyCoords = enemy.getCoordinates();
                             float enemyX = enemyCoords.getX();
                             float enemyY = enemyCoords.getY();
-                            
+
                             // Adjacent to player = combat occurred
                             if (isAdjacent(playerX, playerY, enemyX, enemyY)) {
                                 eventDispatcher.onCombatDamage(enemyX, enemyY, 1, false);
@@ -480,9 +479,9 @@ public class GameScreen implements Screen {
             }
         }
     }
-    
+
     private boolean isAdjacent(float x1, float y1, float x2, float y2) {
-        return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1 && 
+        return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1 &&
                !(x1 == x2 && y1 == y2);
     }
 
@@ -496,18 +495,18 @@ public class GameScreen implements Screen {
 
         Coordinates playerPos = player.getCoordinates();
         Item itemAtPos = level.getItems().get(playerPos);
-        
+
         if (itemAtPos != null) {
             try {
                 if (player.getBackpack().addItem(itemAtPos.copyObject())) {
                     // Fire event through dispatcher
                     eventDispatcher.onItemPickedUp(itemAtPos);
-                    
+
                     // Also call listener if set
                     if (eventListener != null) {
                         eventListener.onItemPickedUp(itemAtPos);
                     }
-                    
+
                     level.removeItem(playerPos);
                     Logger.info("Picked up: " + itemAtPos.getName());
                     addActionLog("Picked up: " + itemAtPos.getName());
@@ -571,10 +570,10 @@ public class GameScreen implements Screen {
         if (eventDispatcher != null) {
             eventDispatcher.clearListeners();
         }
-        
+
         // Print performance report on dispose
         performanceProfiler.printReport();
-        
+
         renderer.dispose();
     }
 
@@ -582,14 +581,14 @@ public class GameScreen implements Screen {
     public String getName() {
         return "GameScreen";
     }
-    
+
     /**
      * Get performance report for external analysis.
      */
     public String getPerformanceReport() {
         return performanceProfiler.getPerformanceReport();
     }
-    
+
     /**
      * Check if gameplay meets performance targets.
      */

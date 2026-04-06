@@ -1,8 +1,8 @@
 package io.github.example.domain.service;
 
 public enum Direction {
-    UP(0, -1),
-    DOWN(0, 1),
+    UP(0, 1),       // LibGDX: UP increases Y (screen coordinates)
+    DOWN(0, -1),    // LibGDX: DOWN decreases Y
     LEFT(-1, 0),
     RIGHT(1, 0),
     NONE(0, 0);

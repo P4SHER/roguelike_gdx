@@ -18,6 +18,11 @@ public class Constants {
     public static final int VIEWPORT_WIDTH_TILES = SCREEN_WIDTH / TILE_SIZE;
     public static final int VIEWPORT_HEIGHT_TILES = SCREEN_HEIGHT / TILE_SIZE;
 
+    // Камера zoom (> 1.0 = приближение, как в Soul Knight)
+    // 1.0 = видно 60 тайлов в ширину
+    // 3.0 = видно ~20 тайлов в ширину (как Soul Knight)
+    public static final float CAMERA_ZOOM = 3.0f;
+
     // UI отступы
     public static final int UI_PADDING = 16;
     public static final int UI_MARGIN = 8;

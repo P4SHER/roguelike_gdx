@@ -1,7 +1,7 @@
 package io.github.example.presentation.renderer.layers;
 
-import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Rectangle;
 import io.github.example.domain.level.Level;
@@ -9,8 +9,6 @@ import io.github.example.domain.level.SpaceType;
 import io.github.example.domain.level.Tile;
 import io.github.example.presentation.assets.AssetManager;
 import io.github.example.presentation.util.Constants;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Рендерер слоя тайлов (пол, стены, выходы).
@@ -19,7 +17,6 @@ import java.util.Map;
 public class TileLayerRenderer extends AbstractLayerRenderer {
     private final Level level;
     private final AssetManager assetManager;
-    private final Map<SpaceType, Sprite> tileSpritesCache = new HashMap<>();
     private int tilesRendered;
 
     public TileLayerRenderer(Level level, AssetManager assetManager) {
@@ -31,21 +28,7 @@ public class TileLayerRenderer extends AbstractLayerRenderer {
     @Override
     public void init() {
         super.init();
-        // Кэшируем спрайты для каждого типа тайла
-        cacheAllTileSprites();
-        debugLog("Инициализирован с " + tileSpritesCache.size() + " типами тайлов");
-    }
-
-    /**
-     * Кэширует спрайты для всех типов тайлов.
-     */
-    private void cacheAllTileSprites() {
-        tileSpritesCache.put(SpaceType.Room, getTileSpriteForType(SpaceType.Room));
-        tileSpritesCache.put(SpaceType.Passage, getTileSpriteForType(SpaceType.Passage));
-        tileSpritesCache.put(SpaceType.Wall, getTileSpriteForType(SpaceType.Wall));
-        tileSpritesCache.put(SpaceType.Exit, getTileSpriteForType(SpaceType.Exit));
-        tileSpritesCache.put(SpaceType.Nothing, getTileSpriteForType(SpaceType.Nothing));
-        tileSpritesCache.put(SpaceType.Door, getTileSpriteForType(SpaceType.Door));
+        debugLog("Инициализирован для рендеринга тайлов из атласа");
     }
 
     @Override
@@ -98,46 +81,49 @@ public class TileLayerRenderer extends AbstractLayerRenderer {
             return;
         }
 
-        Sprite sprite = tileSpritesCache.get(tile.getSpaceType());
-        if (sprite == null) {
-            sprite = tileSpritesCache.get(SpaceType.Nothing);
-        }
-
-        if (sprite != null) {
-            sprite.setPosition(x, y);
-            sprite.setSize(Constants.TILE_SIZE, Constants.TILE_SIZE);
-            sprite.draw(batch);
-        }
-    }
-
-    /**
-     * Получает спрайт для типа тайла.
-     * Использует асет менеджер для загрузки спрайтов.
-     */
-    private Sprite getTileSpriteForType(SpaceType type) {
-        String spritePath = mapSpaceTypeToSpritePath(type);
-        return assetManager.getSprite(spritePath);
-    }
-
-    /**
-     * Маппирует SpaceType на путь спрайта.
-     * Использует Kenney Micro Roguelike тайлы.
-     */
-    private String mapSpaceTypeToSpritePath(SpaceType type) {
+        SpaceType type = tile.getSpaceType();
+        
+        // Маппируем тип тайла на координаты в атласе
+        int tileX = 0;
+        int tileY = 0;
+        
         switch (type) {
             case Room:
-                return "tiles/tileset"; // Floor tile from Kenney atlas
-            case Passage:
-                return "tiles/tileset"; // Same atlas, different index
+                tileX = 0;
+                tileY = 0;
+                break;
             case Wall:
-                return "tiles/tileset"; // Wall from Kenney atlas
-            case Exit:
-                return "tiles/tileset"; // Exit tile from Kenney atlas
+                tileX = 1;
+                tileY = 0;
+                break;
+            case Passage:
+                tileX = 2;
+                tileY = 0;
+                break;
             case Door:
-                return "tiles/tileset"; // Door from Kenney atlas
+                tileX = 3;
+                tileY = 0;
+                break;
+            case Exit:
+                tileX = 4;
+                tileY = 0;
+                break;
             case Nothing:
             default:
-                return "tiles/tileset"; // Default from Kenney atlas
+                tileX = 5;
+                tileY = 0;
+                break;
+        }
+
+        // Получаем TextureRegion
+        TextureRegion region = assetManager.getTileRegion(tileX, tileY);
+        if (region == null) {
+            // Fallback к простому тайлу
+            region = assetManager.getFloorTile();
+        }
+
+        if (region != null) {
+            batch.draw(region, x, y, Constants.TILE_SIZE, Constants.TILE_SIZE);
         }
     }
 
@@ -150,7 +136,6 @@ public class TileLayerRenderer extends AbstractLayerRenderer {
 
     @Override
     public void dispose() {
-        tileSpritesCache.clear();
         super.dispose();
     }
 }
