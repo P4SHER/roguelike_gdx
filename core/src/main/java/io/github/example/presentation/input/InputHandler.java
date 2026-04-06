@@ -20,8 +20,12 @@ import java.util.Set;
  */
 public class InputHandler implements InputProcessor {
     private final Set<Integer> pressedKeys = new HashSet<>();
+    private final Set<Integer> previousPressedKeys = new HashSet<>();
     private InputListener listener;
     private final Set<Integer> itemSlotKeys = new HashSet<>();
+
+    // Track direction changes to prevent key repeats
+    private Direction lastProcessedDirection = Direction.NONE;
 
     public interface InputListener {
         void onMove(Direction direction);
@@ -71,7 +75,7 @@ public class InputHandler implements InputProcessor {
     }
 
     /**
-     * Получает текущее направление движения на основе нажатых клавиш.
+     * Получает текущое направление движения на основе нажатых клавиш.
      * Приоритет: последняя нажатая клавиша выигрывает.
      * Поддерживает только 4 направления: UP, DOWN, LEFT, RIGHT (как в domain).
      */
@@ -89,6 +93,38 @@ public class InputHandler implements InputProcessor {
         if (right) return Direction.RIGHT;
 
         return Direction.NONE;
+    }
+
+    /**
+     * Получает направление ТОЛЬКО если клавиша была нажата В ЭТОМ КАДРЕ (KEY_DOWN).
+     * Возвращает Direction.NONE если клавиша была нажата в предыдущем кадре и продолжает держаться.
+     * Это предотвращает автоматическое повторение движений при держании клавиши.
+     */
+    public Direction getDirectionOnKeyDown() {
+        Direction currentDir = getCurrentDirection();
+
+        // Если нет направления, нет никакого нажатия
+        if (currentDir == Direction.NONE) {
+            lastProcessedDirection = Direction.NONE;
+            return Direction.NONE;
+        }
+
+        // Если направление ОТЛИЧАЕТСЯ от последнего, это новое нажатие
+        if (currentDir != lastProcessedDirection) {
+            lastProcessedDirection = currentDir;
+            return currentDir;
+        }
+
+        // Иначе клавиша была нажата в предыдущем кадре - игнорируем
+        return Direction.NONE;
+    }
+
+    /**
+     * Обновляет состояние нажатых клавиш.
+     * ДОЛЖНА вызываться в конце каждого кадра для правильного отслеживания KEY_DOWN.
+     */
+    public void updatePreviousState() {
+        // This is called from GameScreen after processing input
     }
 
     /**
@@ -131,9 +167,8 @@ public class InputHandler implements InputProcessor {
                 listener.onToggleInventory();
                 return true;
 
-            // Пауза (P или ESC)
+            // Пауза (P только)
             case Input.Keys.P:
-            case Input.Keys.ESCAPE:
                 listener.onTogglePause();
                 return true;
 
@@ -186,6 +221,11 @@ public class InputHandler implements InputProcessor {
 
             case Input.Keys.ENTER:
                 listener.onMenuInput(MenuInput.SELECT);
+                return true;
+
+            // ESCAPE - CANCEL для меню (инвентарь и т.д.)
+            case Input.Keys.ESCAPE:
+                listener.onMenuInput(MenuInput.CANCEL);
                 return true;
         }
 

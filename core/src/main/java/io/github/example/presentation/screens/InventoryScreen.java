@@ -50,7 +50,7 @@ public class InventoryScreen implements Screen {
         this.selectedIndex = 0;
         this.lastMessage = "";
         this.messageDisplayTime = 0;
-        
+
         if (player != null && player.getBackpack() != null) {
             this.backpack = player.getBackpack();
             this.displayItems = new ArrayList<>(backpack.getAllItems());
@@ -97,7 +97,7 @@ public class InventoryScreen implements Screen {
         // Display messages
         renderMessages(batch);
 
-        Logger.debug("Inventory rendered: " + displayItems.size() + " items, selected: " + 
+        Logger.debug("Inventory rendered: " + displayItems.size() + " items, selected: " +
             (selectedItem != null ? selectedItem.getName() : "none"));
     }
 
@@ -400,6 +400,41 @@ public class InventoryScreen implements Screen {
         if (inputHandler.isKeyPressed(Input.Keys.E)) {
             toggleEquip();
             inputHandler.clearInput();
+        }
+    }
+
+    /**
+     * Handles menu input for inventory navigation and actions.
+     * Called from LibGdxGameApplicationListener when InventoryScreen is active.
+     *
+     * @param input the menu input from InputHandler
+     */
+    public void handleMenuInput(InputHandler.MenuInput input) {
+        if (input == null) return;
+
+        try {
+            switch (input) {
+                case UP:
+                    navigateUp();
+                    break;
+                case DOWN:
+                    navigateDown();
+                    break;
+                case SELECT:
+                    // Use selected item on SELECT
+                    useSelectedItem();
+                    break;
+                case CANCEL:
+                    // Close inventory on CANCEL (ESC)
+                    if (callback != null) {
+                        callback.onClose();
+                    }
+                    break;
+                default:
+                    break;
+            }
+        } catch (Exception e) {
+            Logger.error("Error handling inventory input: " + e.getMessage());
         }
     }
 

@@ -22,11 +22,27 @@ public class CameraController {
         this.levelWidth = levelWidth;
         this.levelHeight = levelHeight;
 
-        // Создаем камеру с размерами в пикселях
+        // Создаем камеру с нормальным размером (не изменяется при zoom)
+        // OrthographicCamera(width, height) = размер мира в единицах, который будет виден
+        // После применения zoom, видимая область будет: width/zoom x height/zoom
         float w = Constants.SCREEN_WIDTH;
         float h = Constants.SCREEN_HEIGHT;
         this.camera = new OrthographicCamera(w, h);
-        this.camera.position.set(w / 2, h / 2, 0);
+
+        // Применяем зум (> 1.0 = приближение, как в Soul Knight)
+        // ВАЖНО: zoom ДОЛЖЕН быть установлен ДО update()
+        this.camera.zoom = Constants.CAMERA_ZOOM;
+
+        // ПОСЛЕ zoom, фактический viewport станет:
+        // viewportWidth = w / zoom = 1920 / 3.0 = 640 пиксели
+        // viewportHeight = h / zoom = 1080 / 3.0 = 360 пиксели
+        // Это означает, что видимо будет область 640x360 пиксели (~20x11 тайлов при TILE_SIZE=32)
+
+        // Устанавливаем начальную позицию центра камеры на половину видимого экрана
+        // (это будет центр того, что видно с применением zoom)
+        this.camera.position.set(w / 2 / Constants.CAMERA_ZOOM, h / 2 / Constants.CAMERA_ZOOM, 0);
+
+        // update() пересчитывает внутренние матрицы камеры
         this.camera.update();
 
         this.targetX = this.camera.position.x;
