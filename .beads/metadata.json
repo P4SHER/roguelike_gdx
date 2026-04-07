@@ -1,7 +1,4 @@
 {
-  "database": "sqlite",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "LibGDX_Roguelike",
-  "project_id": "bd87f3e3-04e3-4953-90dd-29c0f1a32058"
+  "database": "beads.db",
+  "jsonl_export": "issues.jsonl"
 }
